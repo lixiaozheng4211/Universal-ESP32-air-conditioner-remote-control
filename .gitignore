@@ -1,34 +1,79 @@
-# Editor and OS noise
+# Editor, OS, and workspace noise
 .vscode/
 .idea/
 .DS_Store
+.AppleDouble
+.LSOverride
+.directory
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.user
+*.workspace
+*.suo
+*.sln.docstates
+
+# Temporary files
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+*.autosave
+
+# Logs
+*.log
 
 # ESP-IDF / CMake build products
 build/
 */build/
+**/build/
 .cache/
 */.cache/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+compile_commands.json
+*.o
+*.a
+*.out
+*.exe
+*.bin
+*.elf
+*.map
+flasher_args.json
+sdkconfig.old
+
+# ESP-IDF dependencies and local tools
 managed_components/
 */managed_components/
 dependencies.lock.tmp
+/components/.idf/
+**/components/.idf/
+.espressif/
 
 # Qt build products
 qt_host/build/
 qt_host/build-*/
-*.user
-*.autosave
-
-# Local duplicate/reference copies
-IRremoteESP8266-master/
-空调遥控器软件部分 - 副本/
 
 # Python and generic caches
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.egg-info/
+dist/
+venv/
+.venv/
+env/
 
-# Logs and temporary files
-*.log
-*.tmp
-*.bak
+# Language servers
+.clangd
+.clangd/
+.ccls-cache/
+
+# Local duplicate/reference copies
+IRremoteESP8266-master/
+空调遥控器软件部分 - 副本/
