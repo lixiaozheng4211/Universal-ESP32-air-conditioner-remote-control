@@ -1,0 +1,34 @@
+# Editor and OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ESP-IDF / CMake build products
+build/
+*/build/
+.cache/
+*/.cache/
+managed_components/
+*/managed_components/
+dependencies.lock.tmp
+
+# Qt build products
+qt_host/build/
+qt_host/build-*/
+*.user
+*.autosave
+
+# Local duplicate/reference copies
+IRremoteESP8266-master/
+空调遥控器软件部分 - 副本/
+
+# Python and generic caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak

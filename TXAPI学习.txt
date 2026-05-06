@@ -1,0 +1,115 @@
+驱动配置流程 : 
+配置硬件通道Channel ==> 配置载波TX ==> 
+配置RMT中断以及回调函数 ==> 创建编码器 (Encoder) ==> 
+使能硬件通道 (Enable) ==> 配置发送设置并启动 (Transmit & Config)
+
+
+1. 安装RMT TX通道
+ 需要预先提供配置结构rmt_tx_channel_config_t 配置通道 (RMT通道) 有一些配置到时候写的时候就知道 了 , 现在不用管
+@param resolution_hz 时钟配置
+@param DMA硬件
+
+中断优先级是否需要设置? 
+
+电源管理 : 这个不用管 , 
+
+一般配置参数 , 到时直接引出就好
+rmt_channel_handle_t tx_chan = NULL;
+rmt_tx_channel_config_t tx_chan_config = {
+    .clk_src = RMT_CLK_SRC_DEFAULT,   // select source clock
+    .gpio_num = 0,                    // GPIO number
+    .mem_block_symbols = 64,          // memory block size, 64 * 4 = 256 Bytes
+    .resolution_hz = 1 * 1000 * 1000, // 1 MHz tick resolution, i.e., 1 tick = 1 µs
+    .trans_queue_depth = 4,           // set the number of transactions that can pend in the background
+    .flags.invert_out = false,        // do not invert output signal
+    .flags.with_dma = false,          // do not need DMA backend
+};
+ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_chan_config, &tx_chan));
+
+
+2 . 硬件传输载波于调制
+首先说NEC信号协议就是一个通过判断高低电平时间长短来区分01信号
+
+这里用户需要设置载波信号的频率和占空比 , RMT 接收器可以从输入信号中解调出载波信号
+
+这是基础配置 , 但是只需要知道要配置载波就好
+
+rmt_carrier_config_t tx_carrier_cfg = {
+    .duty_cycle = 0.33,                 // duty cycle 33%
+    .frequency_hz = 38000,              // 38 KHz
+    .flags.polarity_active_low = false, // carrier should be modulated to high level
+};
+// modulate carrier to TX channel
+ESP_ERROR_CHECK(rmt_apply_carrier(tx_chan, &tx_carrier_cfg));
+
+
+3. 中断回调 注意 : 确保回调函数不会阻塞
+
+注册回调函数 : rmt_tx_register_event_callbacks()
+
+TX 通道支持的事件回调列在rmt_tx_event_callbacks_t：
+
+rmt_tx_event_callbacks_t::on_trans_done为“trans-done”事件设置回调函数。该函数原型在.中声明rmt_tx_done_callback_t。
+只能写一个回调函数 , 但是这里可以是回调函数的中转站 , 可以把 rmt_tx_done_callback_t . 看做是一个总表然后在 on_trans_done 中填写你的手机号码
+
+发送完成有 : TX-done 事件数据rmt_rx_done_event_data_t
+如果传输100个字符那么他返回的就是101个字符 , 因为结束有一个EOF字符
+
+4 使能通道
+rmt_enable()必须在发送或接收 RMT 符号之前预先调用。对于 TX 通道，启用通道会启用一个特定的中断，并使硬件准备好分发事务。
+ESP_ERROR_CHECK(rmt_enable(tx_chan));
+
+5 稍微介绍一下 rmt_symbol_word_t 
+根据官方文档底层的定义，它被分成了四个小块：
+
+级别 0 (1 bit)： 第一段是高电平还是低电平（1代表高，0代表低）。
+持续时间 0 (15 bits)： 第一段电平要保持多长时间（以系统时钟周期为单位）。
+级别 1 (1 bit)： 第二段是高电平还是低电平。
+持续时间 1 (15 bits)： 第二段电平要保持多长时间。
+
+创建编码器之后使用 发起 TX 事务rmt_transmit() 会有一些参数到时候配置就可以  , 要在 `.tx.conf` 文件中提供特定于传输的配置rmt_transmit_config_t：
+
+常规配置不需要flag选项 , 直接配置第一个就可以
+
+  rmt_transmit_config_t transmit_config1 = {
+      .loop_count = 0, // 发完一次就停，不死循环
+      .flags.eot_level =
+          , // 设置发射器完成工作或停止工作时的输出电平rmt_disable()。
+      .flags.queue_nonblocking =, // 设置当事务队列已满时是否等待空闲队列
+  };
+
+为什么这里的loop_count是0 , 这个函数我们是在FreeRTOS中的任务中调用 , 所以会一直调用 , 所以配置一次就可以
+
+6. 介绍 RMT 编码器
+RMT 编码器是 RMT TX（发送）事务的核心部分。因为 RMT 硬件很“笨”，只认识电平脉冲长度，所以编码器的职责就是：在软件层面把你的数据翻译成正确的 RMT 符号（rmt_symbol_word_t），并写入硬件内存或 DMA 缓冲区。
+
+核心特点与限制：
+
+a. 分段编码（状态机机制）： 由于目标 RMT 内存块无法一次性容纳所有数据，驱动程序采用了“乒乓（Ping-Pong）”机制。编码函数在单次发送过程中会被多次调用（在中断中触发）。因此，编码器必须能够跟踪并记住自己的状态，以便从上次中断的地方无缝继续编码。
+
+b. 性能优化（IRAM）： 编码函数是在中断服务例程 (ISR) 的上下文中运行的。为了加快执行速度并防止执行时发生缓存未命中（Cache Miss）导致程序崩溃，强烈建议将自定义的编码函数放入内部高速 RAM（IRAM）中。
+
+官方提供的两款主力编码器：
+
+c. 复制编码器 (Copy Encoder)：
+
+角色定位： 纯粹的“搬运工”。
+
+作用： 不做任何翻译，直接把你提前准备好的 RMT 符号从用户空间原封不动地复制到驱动底层。
+
+适用场景： 专门用来发送**固定不变（const）**的数据。例如：红外协议中每次发送都一模一样的“头部引导码（Preamble）”或“结束码”。
+
+d. 字节编码器 (Bytes Encoder)：
+
+角色定位： 实时的“翻译官”。
+
+作用： 将普通的字节流（如 0x4A, 0x5B 等动态数据）动态地翻译成对应的 RMT 符号。
+
+适用场景： 用来发送动态变化的数据内容。例如：红外协议中代表具体按键的“地址码”和“命令码”。
+
+配置要求： 使用它之前，你必须配置好它的“翻译字典”——告诉它逻辑 0 对应的 RMT 符号长什么样（bit0）、逻辑 1 长什么样（bit1），以及是先发高位还是先发低位（msb_first）。
+
+
+7 为NEC定制的编码器直接使用就好
+直接翻文档就好
+
