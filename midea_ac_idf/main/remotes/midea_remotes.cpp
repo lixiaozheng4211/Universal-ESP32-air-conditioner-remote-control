@@ -77,10 +77,32 @@ bool sendRn02s13(const AcRemote &, const AcState &state) {
   return true;
 }
 
+bool sendRn02s13Action(const AcRemote &remote, const AcState &state,
+                       AcAction action) {
+  switch (action) {
+  case AcAction::Power:
+    gRn02s13.setPowers(state.power);
+    return true;
+  case AcAction::Temp:
+    gRn02s13.setTemps(state.temp);
+    return true;
+  case AcAction::Mode:
+    gRn02s13.setModes(mideaMode(state.mode));
+    return true;
+  case AcAction::SwingV:
+    gRn02s13.setSwingUD(state.swingv == stdAc::swingv_t::kAuto);
+    return true;
+  case AcAction::State:
+  default:
+    return sendRn02s13(remote, state);
+  }
+}
+
 const AcRemoteClass kMideaRn02s13Class = {
     "Midea RN02S13",
     beginRn02s13,
     sendRn02s13,
+    sendRn02s13Action,
 };
 
 } // namespace

@@ -6,6 +6,7 @@ idf_component_register(
         "air_conditioner.cpp"
         "serial_protocol.cpp"
         "drivers/irac_backend.cpp"
+        "drivers/ir_test.cpp"
         "remotes/gree_remotes.cpp"
         "remotes/haier_remotes.cpp"
         "remotes/midea_remotes.cpp"

@@ -4,6 +4,7 @@
 
 struct AirConditioner {
   const AcRemote *remote = nullptr;
+  AcAction action = AcAction::State;
   AcState state;
 };
 

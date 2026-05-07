@@ -111,5 +111,8 @@ bool acSend(const AirConditioner &ac) {
   if (acValidate(ac) != AcValidationError::Ok) {
     return false;
   }
+  if (ac.action != AcAction::State && ac.remote->klass->sendAction != nullptr) {
+    return ac.remote->klass->sendAction(*ac.remote, ac.state, ac.action);
+  }
   return ac.remote->klass->send(*ac.remote, ac.state);
 }

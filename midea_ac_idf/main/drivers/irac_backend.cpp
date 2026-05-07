@@ -10,10 +10,16 @@ bool sendViaIRac(const AcRemote &remote, const AcState &state) {
                       false, false, state.eco, false, false, false, false);
 }
 
+bool sendActionViaIRac(const AcRemote &remote, const AcState &state,
+                       AcAction) {
+  return sendViaIRac(remote, state);
+}
+
 } // namespace
 
 const AcRemoteClass kIracRemoteClass = {
     "IRac",
     nullptr,
     sendViaIRac,
+    sendActionViaIRac,
 };

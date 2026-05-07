@@ -14,6 +14,14 @@ enum class AcNodeKind : uint8_t {
   Remote,
 };
 
+enum class AcAction : uint8_t {
+  State,
+  Power,
+  Temp,
+  Mode,
+  SwingV,
+};
+
 struct AcRemote;
 
 struct AcState {
@@ -36,11 +44,14 @@ struct AcCapabilities {
 
 using AcBeginFn = void (*)();
 using AcSendFn = bool (*)(const AcRemote &remote, const AcState &state);
+using AcSendActionFn = bool (*)(const AcRemote &remote, const AcState &state,
+                                AcAction action);
 
 struct AcRemoteClass {
   const char *name;
   AcBeginFn begin;
   AcSendFn send;
+  AcSendActionFn sendAction;
 };
 
 struct AcRemote {
@@ -64,3 +75,4 @@ struct AcCatalogNode {
 };
 
 const char *acModeToString(stdAc::opmode_t mode);
+const char *acActionToString(AcAction action);

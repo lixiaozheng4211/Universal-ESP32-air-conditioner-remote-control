@@ -16,3 +16,20 @@ const char *acModeToString(stdAc::opmode_t mode) {
     return "unknown";
   }
 }
+
+const char *acActionToString(AcAction action) {
+  switch (action) {
+  case AcAction::State:
+    return "state";
+  case AcAction::Power:
+    return "power";
+  case AcAction::Temp:
+    return "temp";
+  case AcAction::Mode:
+    return "mode";
+  case AcAction::SwingV:
+    return "swingv";
+  default:
+    return "unknown";
+  }
+}

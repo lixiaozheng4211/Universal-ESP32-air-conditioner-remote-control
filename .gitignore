@@ -50,6 +50,7 @@ sdkconfig.old
 managed_components/
 */managed_components/
 dependencies.lock.tmp
+/dependencies.lock
 /components/.idf/
 **/components/.idf/
 .espressif/

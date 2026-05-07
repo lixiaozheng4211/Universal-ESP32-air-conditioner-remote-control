@@ -1,6 +1,3 @@
-[submodule "gree_ac_idf/components/arduino"]
-	path = gree_ac_idf/components/arduino
-	url = https://github.com/espressif/arduino-esp32.git
 [submodule "midea_ac_idf/components/arduino"]
 	path = midea_ac_idf/components/arduino
 	url = https://github.com/espressif/arduino-esp32.git

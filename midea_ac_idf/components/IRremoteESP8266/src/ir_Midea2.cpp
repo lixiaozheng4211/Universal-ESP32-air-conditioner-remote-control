@@ -26,7 +26,10 @@ uint8_t D_1 = 0xAB, D_2 = 0x66, D_3 = 0x00, D_4 = 0x00, D_5 = 0x00, D_6 = 0xDC;
 uint8_t A, B, C, B_1 = 0xF, B_2, C_1 = 0x1, C_2 = 0xB;
 uint8_t kIrLed = 4; // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
-IRsend irsend(kIrLed); // Set the GPIO to be used to sending the message.
+IRsend &meidiIrsend() {
+  static IRsend sender(kIrLed);
+  return sender;
+}
 
 void Lead_Code(); // 定义引导码发送函数
 void Stop_Code(); // 定义分隔码发送函数
@@ -52,7 +55,7 @@ void Send_Meidi(
 
 void IRsendMeidi::begin_2() { // 初始化IRsend.begin的函数，需写入到主程序的void
                               // setup（）中。
-  irsend.begin();
+  meidiIrsend().begin();
 }
 
 void IRsendMeidi::setCodeTime(int marks, int one_spaces, int zero_spaces,
@@ -510,20 +513,20 @@ void Send_Meidi(
 }
 void Lead_Code() { // 引导码函数定义
 
-  irsend.enableIROut(ZBPL);
-  irsend.sendData(L_Mark, L_Space, 450, 450, 1, 1, 1);
+  meidiIrsend().enableIROut(ZBPL);
+  meidiIrsend().sendData(L_Mark, L_Space, 450, 450, 1, 1, 1);
 }
 
 void Stop_Code() { // 间隔码函数定义
 
-  irsend.enableIROut(ZBPL);
-  irsend.sendData(450, 450, Marks, S_Space, 0, 1, 1);
+  meidiIrsend().enableIROut(ZBPL);
+  meidiIrsend().sendData(450, 450, Marks, S_Space, 0, 1, 1);
 }
 
 void Send_Byte(uint8_t data1, int nbit1, bool msb) { // 数据发送函数定义
 
-  irsend.enableIROut(ZBPL);
-  irsend.sendData(
+  meidiIrsend().enableIROut(ZBPL);
+  meidiIrsend().sendData(
       Marks, One_Space, Marks, Zero_Space, data1, nbit1,
       msb); // 使用IRsend库里的数据发送函数，具体使用方法可以查看IRsend库里的注释
 }

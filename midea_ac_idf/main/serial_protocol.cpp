@@ -2,6 +2,9 @@
 
 #include "ac_catalog.h"
 #include "air_conditioner.h"
+#include "drivers/ir_test.h"
+
+#include <stdlib.h>
 
 namespace {
 
@@ -81,6 +84,69 @@ bool parseSwingH(const String &value, stdAc::swingh_t *out) {
   return true;
 }
 
+bool parseAction(const String &value, AcAction *out) {
+  if (value == "state") {
+    *out = AcAction::State;
+  } else if (value == "power") {
+    *out = AcAction::Power;
+  } else if (value == "temp") {
+    *out = AcAction::Temp;
+  } else if (value == "mode") {
+    *out = AcAction::Mode;
+  } else if (value == "swingv") {
+    *out = AcAction::SwingV;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool parseUnsignedValue(const String &value, uint32_t minValue,
+                        uint32_t maxValue, uint32_t *out) {
+  char *end = nullptr;
+  const unsigned long parsed = strtoul(value.c_str(), &end, 0);
+  if (end == value.c_str() || *end != '\0' || parsed < minValue ||
+      parsed > maxValue) {
+    return false;
+  }
+  *out = static_cast<uint32_t>(parsed);
+  return true;
+}
+
+bool parseFrequency(String value, uint32_t *out) {
+  value.trim();
+  value.toLowerCase();
+  if (value.endsWith("khz")) {
+    value.remove(value.length() - 3);
+  } else if (value.endsWith("k")) {
+    value.remove(value.length() - 1);
+  }
+  value.trim();
+
+  uint32_t freq = 0;
+  if (!parseUnsignedValue(value, 30, 60000, &freq)) {
+    return false;
+  }
+  if (freq < 1000) {
+    freq *= 1000;
+  }
+  if (freq < 30000 || freq > 60000) {
+    return false;
+  }
+  *out = freq;
+  return true;
+}
+
+bool parseDataValue(const String &value, uint64_t *out) {
+  char *end = nullptr;
+  const unsigned long long parsed = strtoull(value.c_str(), &end, 0);
+  if (end == value.c_str() || *end != '\0') {
+    return false;
+  }
+  *out = static_cast<uint64_t>(parsed);
+  return true;
+}
+
 void printCatalog() {
   Serial.printf("OK CATALOG remotes=%u\n", acRemoteCount());
   for (size_t i = 0; i < acCatalogNodeCount(); ++i) {
@@ -140,6 +206,11 @@ bool parseAcArgs(String args, AirConditioner *ac) {
         err("UNKNOWN_REMOTE", value.c_str());
         return false;
       }
+    } else if (key == "action") {
+      if (!parseAction(value, &ac->action)) {
+        err("BAD_ACTION", "use state/power/temp/mode/swingv");
+        return false;
+      }
     } else if (key == "power") {
       if (!parseBoolValue(value, &ac->state.power)) {
         err("BAD_POWER", "use 0/1");
@@ -188,6 +259,84 @@ bool parseAcArgs(String args, AirConditioner *ac) {
   return true;
 }
 
+bool parseIrTestArgs(String args, IrTestRequest *request) {
+  args.trim();
+  int start = 0;
+  while (start < args.length()) {
+    while (start < args.length() && args[start] == ' ') {
+      start++;
+    }
+    if (start >= args.length()) {
+      break;
+    }
+
+    int end = args.indexOf(' ', start);
+    if (end < 0) {
+      end = args.length();
+    }
+
+    String token = args.substring(start, end);
+    int eq = token.indexOf('=');
+    if (eq <= 0 || eq == token.length() - 1) {
+      err("BAD_TOKEN", "expected key=value");
+      return false;
+    }
+
+    String key = token.substring(0, eq);
+    String value = token.substring(eq + 1);
+    key.toLowerCase();
+    value.toLowerCase();
+
+    if (key == "freq" || key == "frequency") {
+      if (!parseFrequency(value, &request->freqHz)) {
+        err("BAD_FREQ", "use 38/40/38000/40000");
+        return false;
+      }
+    } else if (key == "count" || key == "repeat") {
+      uint32_t count = 0;
+      if (!parseUnsignedValue(value, 1, 20, &count)) {
+        err("BAD_COUNT", "use 1..20");
+        return false;
+      }
+      request->count = static_cast<uint16_t>(count);
+    } else if (key == "ms" || key == "carrier_ms") {
+      uint32_t carrierMs = 0;
+      if (!parseUnsignedValue(value, 1, 2000, &carrierMs)) {
+        err("BAD_MS", "use 1..2000");
+        return false;
+      }
+      request->carrierMs = static_cast<uint16_t>(carrierMs);
+    } else if (key == "duty") {
+      uint32_t duty = 0;
+      if (!parseUnsignedValue(value, 10, 80, &duty)) {
+        err("BAD_DUTY", "use 10..80");
+        return false;
+      }
+      request->dutyPercent = static_cast<uint8_t>(duty);
+    } else if (key == "data") {
+      if (!parseDataValue(value, &request->data)) {
+        err("BAD_DATA", "use decimal or 0x hex");
+        return false;
+      }
+    } else if (key == "mode" || key == "type") {
+      if (value == "nec" || value == "frame") {
+        request->mode = IrTestMode::Nec;
+      } else if (value == "carrier" || value == "raw") {
+        request->mode = IrTestMode::Carrier;
+      } else {
+        err("BAD_MODE", "use nec/carrier");
+        return false;
+      }
+    } else {
+      err("UNKNOWN_KEY", key.c_str());
+      return false;
+    }
+
+    start = end + 1;
+  }
+  return true;
+}
+
 void handleAcCommand(const String &args) {
   AirConditioner ac;
   if (!parseAcArgs(args, &ac)) {
@@ -199,9 +348,29 @@ void handleAcCommand(const String &args) {
     return;
   }
 
-  Serial.printf("OK SENT remote=%s power=%u mode=%s temp=%.1f\n",
-                ac.remote->id, ac.state.power ? 1 : 0,
+  Serial.printf("OK SENT remote=%s action=%s power=%u mode=%s temp=%.1f\n",
+                ac.remote->id, acActionToString(ac.action),
+                ac.state.power ? 1 : 0,
                 acModeToString(ac.state.mode), ac.state.temp);
+}
+
+void handleIrTestCommand(const String &args) {
+  IrTestRequest request;
+  if (!parseIrTestArgs(args, &request)) {
+    return;
+  }
+
+  if (!irTestSend(request)) {
+    err("BAD_IRTEST", "check freq/count/ms/duty");
+    return;
+  }
+
+  Serial.printf("OK IRTEST mode=%s freq=%lu count=%u duty=%u ms=%u "
+                "data=0x%08llX\n",
+                irTestModeToString(request.mode),
+                static_cast<unsigned long>(request.freqHz), request.count,
+                request.dutyPercent, request.carrierMs,
+                static_cast<unsigned long long>(request.data));
 }
 
 } // namespace
@@ -228,8 +397,10 @@ void serialProtocolProcessLine(String line) {
     printCatalog();
   } else if (command == "AC") {
     handleAcCommand(args);
+  } else if (command == "IRTEST") {
+    handleIrTestCommand(args);
   } else if (command == "HELP") {
-    ok("COMMANDS PING CATALOG AC");
+    ok("COMMANDS PING CATALOG AC(action=state/power/temp/mode/swingv) IRTEST");
   } else {
     err("UNKNOWN_COMMAND", command.c_str());
   }
