@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// LG candidates are model numbers of the IRremoteESP8266 LG sender.
+// LG 候选对应 IRremoteESP8266 LG 发送器的不同型号编号。
 const AcRemote kLgGe6711Remote = {
     "lg_ge6711",
     "lg",

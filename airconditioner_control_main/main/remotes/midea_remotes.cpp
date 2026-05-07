@@ -9,7 +9,7 @@ constexpr uint16_t kSpecialRemoteGapMs = 260;
 
 IRsendMeidi gRn02s13(kAcIrLedGpio);
 
-// Map normalized modes to the command numbers expected by the RN02S13 helper.
+// 把统一模式枚举映射成 RN02S13 驱动需要的命令编号。
 int mideaMode(stdAc::opmode_t mode) {
   switch (mode) {
   case stdAc::opmode_t::kCool:
@@ -26,7 +26,7 @@ int mideaMode(stdAc::opmode_t mode) {
   }
 }
 
-// RN02S13 has its own fan numbering, separate from stdAc::fanspeed_t.
+// RN02S13 有自己的风速编号，和 stdAc::fanspeed_t 不完全一致。
 int mideaFan(stdAc::fanspeed_t fan) {
   switch (fan) {
   case stdAc::fanspeed_t::kMin:
@@ -44,17 +44,17 @@ int mideaFan(stdAc::fanspeed_t fan) {
   }
 }
 
-// The old local driver needs its timing configured before use. These values
-// are preserved from the known-working Midea implementation.
+// 旧的本地驱动在使用前需要配置时序。
+// 这些数值保留自已经验证可用的美的实现。
 void beginRn02s13() {
   gRn02s13.begin_2();
   gRn02s13.setZBPL(40);
   gRn02s13.setCodeTime(500, 1600, 550, 4400, 4400, 5220);
 }
 
-// Full-state sync is used for discovery and backward-compatible AC commands.
-// RN02S13 emits separate IR commands for each property, so UI detail controls
-// should prefer sendRn02s13Action() to avoid multiple beeps.
+// 完整状态同步用于添加空调流程和兼容旧版 AC 命令。
+// RN02S13 每个属性都会发一条独立红外码，
+// 所以详情控制应优先使用 sendRn02s13Action() 避免空调连续响多次。
 bool sendRn02s13(const AcRemote &, const AcState &state) {
   if (!state.power) {
     gRn02s13.setPowers(false);
@@ -80,7 +80,7 @@ bool sendRn02s13(const AcRemote &, const AcState &state) {
   return true;
 }
 
-// Single-action path: one serial command maps to one RN02S13 IR command.
+// 单项控制路径：一条串口命令只对应一条 RN02S13 红外命令。
 bool sendRn02s13Action(const AcRemote &remote, const AcState &state,
                        AcAction action) {
   switch (action) {
@@ -115,7 +115,7 @@ const AcRemoteClass kMideaRn02s13Class = {
     sendRn02s13Action,
 };
 
-} // namespace
+} // 命名空间
 
 const AcRemote kMideaStandardRemote = {
     "midea_standard",

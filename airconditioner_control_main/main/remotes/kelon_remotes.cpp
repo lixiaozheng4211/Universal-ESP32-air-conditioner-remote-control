@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Kelon standard is included because it is directly supported by IRac.
+// Kelon standard 已被 IRac 直接支持，所以纳入当前目录。
 const AcRemote kKelonStandardRemote = {
     "kelon_standard",
     "kelon",

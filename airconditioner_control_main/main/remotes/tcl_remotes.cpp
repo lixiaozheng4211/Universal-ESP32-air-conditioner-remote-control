@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// TCL is kept to the TAC09CHSD model because it is the direct IRac sender here.
+// TCL 当前只保留 TAC09CHSD，因为这是这里能直接走 IRac 的型号。
 const AcRemote kTclTac09chsdRemote = {
     "tcl_tac09chsd",
     "tcl",

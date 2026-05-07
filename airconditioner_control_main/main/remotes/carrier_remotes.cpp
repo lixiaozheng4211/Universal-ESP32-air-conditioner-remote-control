@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Carrier AC64 is the IRac-supported Carrier variant kept in this catalog.
+// Carrier AC64 是当前目录中保留的 IRac 支持开利变体。
 const AcRemote kCarrierAc64Remote = {
     "carrier_ac64",
     "carrier",

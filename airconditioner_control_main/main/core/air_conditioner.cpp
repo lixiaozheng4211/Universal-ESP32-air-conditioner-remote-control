@@ -4,8 +4,9 @@
 
 namespace {
 
-// Multiple catalog entries can share one backend class. Track initialized
-// classes by pointer so begin() is called once per physical sender.
+// 多个目录项可能共用同一个后端类。这里按类指针去重，
+// 确保每个物理红外发送驱动只初始化一次。
+// 例如很多品牌都走 kIracRemoteClass，重复 begin() 没意义，也可能打乱底层发送状态。
 bool classAlreadySeen(const AcRemoteClass *klass,
                       const AcRemoteClass *const *classes,
                       size_t classCount) {
@@ -17,14 +18,15 @@ bool classAlreadySeen(const AcRemoteClass *klass,
   return false;
 }
 
-} // namespace
+} // 命名空间
 
 void acBeginRemoteDrivers() {
   const AcRemoteClass *initialized[16] = {};
   size_t initializedCount = 0;
 
-  // Walk the catalog instead of hard-coding driver names; adding a remote only
-  // requires declaring its AcRemote and linking it into the catalog array.
+  // 遍历目录而不是硬编码驱动名。
+  // 这样新增遥控器时只需要声明 AcRemote 并挂到目录数组里，
+  // 初始化逻辑会自动发现它需要哪个后端，main.cpp 不需要跟着改。
   for (size_t i = 0; i < acCatalogNodeCount(); ++i) {
     const AcCatalogNode &node = acCatalogNodeAt(i);
     if (node.kind != AcNodeKind::Remote || node.remote == nullptr ||
@@ -45,6 +47,8 @@ void acBeginRemoteDrivers() {
 }
 
 AcValidationError acValidate(const AirConditioner &ac) {
+  // 先检查 remote 和 driver，是为了让串口层能返回更准确的错误：
+  // 没选遥控器、遥控器 id 错误、驱动未挂接，这些都不是红外发送失败。
   if (ac.remote == nullptr) {
     return AcValidationError::MissingRemote;
   }
@@ -56,8 +60,9 @@ AcValidationError acValidate(const AirConditioner &ac) {
     return AcValidationError::BadTemp;
   }
 
-  // Default/off/auto values are allowed even when the remote does not expose
-  // that capability, because they do not request an active unsupported feature.
+  // 默认、关闭、自动这类“无额外动作”的值允许通过。
+  // 这样不支持左右风的遥控器仍然可以接收 swingh=off；
+  // 只有真正请求 swingh=auto 这类主动功能时才返回错误。
   if (ac.state.fan != stdAc::fanspeed_t::kAuto &&
       !ac.remote->caps.supportsFan) {
     return AcValidationError::UnsupportedFan;
@@ -120,9 +125,9 @@ bool acSend(const AirConditioner &ac) {
     return false;
   }
 
-  // Single-action commands are preferred when a backend supports them. The IRac
-  // backend still sends a normal full-state frame because those protocols encode
-  // the whole AC state in one transmission.
+  // 如果后端支持单项动作，优先走 sendAction。
+  // 这个分支主要解决 RN02S13 调温连续响多次的问题；
+  // IRac 后端仍会发完整状态帧，因为这些协议本来就是一帧编码完整状态。
   if (ac.action != AcAction::State && ac.remote->klass->sendAction != nullptr) {
     return ac.remote->klass->sendAction(*ac.remote, ac.state, ac.action);
   }

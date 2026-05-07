@@ -8,7 +8,8 @@
 
 namespace {
 
-// Response helpers keep every host-facing line machine-readable.
+// 响应辅助函数，保证所有发给上位机的行都便于机器解析。
+// 统一 OK/ERR 前缀后，Qt/Android 只需要按行判断前缀即可做状态机。
 void ok(const char *message) { Serial.printf("OK %s\n", message); }
 
 void err(const char *code, const char *message) {
@@ -16,6 +17,8 @@ void err(const char *code, const char *message) {
 }
 
 bool parseBoolValue(const String &value, bool *out) {
+  // 同时接受 1/0、true/false、on/off，是为了兼容手动调试习惯；
+  // 文档里仍推荐 Android 端固定使用 1/0，减少歧义。
   if (value == "1" || value == "true" || value == "on") {
     *out = true;
     return true;
@@ -28,6 +31,8 @@ bool parseBoolValue(const String &value, bool *out) {
 }
 
 bool parseMode(const String &value, stdAc::opmode_t *out) {
+  // 协议层使用简单英文枚举，内部立即转换成 IRremoteESP8266 的 stdAc 类型。
+  // 这样后端不需要再关心串口文本格式。
   if (value == "auto") {
     *out = stdAc::opmode_t::kAuto;
   } else if (value == "cool") {
@@ -86,6 +91,8 @@ bool parseSwingH(const String &value, stdAc::swingh_t *out) {
 }
 
 bool parseAction(const String &value, AcAction *out) {
+  // action 是 v1.0 的关键扩展：state 代表完整状态同步，
+  // 其它值代表只发某个被用户改动的控制项。
   if (value == "state") {
     *out = AcAction::State;
   } else if (value == "power") {
@@ -106,8 +113,9 @@ bool parseAction(const String &value, AcAction *out) {
   return true;
 }
 
-// Shared integer parser for IRTEST options. min/max live at each call site so
-// the error message can name the accepted range.
+// IRTEST 选项共用的整数解析函数。
+// min/max 放在调用点，是因为 freq/count/ms/duty 的合法范围不同；
+// 共用解析逻辑可以减少重复代码，但错误提示仍能保持具体。
 bool parseUnsignedValue(const String &value, uint32_t minValue,
                         uint32_t maxValue, uint32_t *out) {
   char *end = nullptr;
@@ -120,7 +128,8 @@ bool parseUnsignedValue(const String &value, uint32_t minValue,
   return true;
 }
 
-// Accept both human-friendly values like 38k/40khz and raw Hz values.
+// 同时接受 38k、40khz 这类人工输入和原始 Hz 数值。
+// 这样现场排查 38K/40K 载波时，不需要记住必须输入 38000 还是 38。
 bool parseFrequency(String value, uint32_t *out) {
   value.trim();
   value.toLowerCase();
@@ -155,8 +164,10 @@ bool parseDataValue(const String &value, uint64_t *out) {
   return true;
 }
 
-// CATALOG mirrors the static tree. Qt can build its brand/remote view directly
-// from these lines, and Android can store a chosen remote id for later control.
+// CATALOG 输出静态目录树。这里没有直接输出 JSON，
+// 是为了保持协议“逐行可读、可用串口助手复制测试”的特点。
+// Qt 可以用 CAT BRAND/CAT REMOTE 构建树形视图，
+// Android 端也可以保存用户选中的 remote id 供后续控制使用。
 void printCatalog() {
   Serial.printf("OK CATALOG remotes=%u\n", acRemoteCount());
   for (size_t i = 0; i < acCatalogNodeCount(); ++i) {
@@ -182,8 +193,10 @@ void printCatalog() {
   ok("CATALOG END");
 }
 
-// Parse AC key=value pairs. Unknown keys are rejected, while eco is accepted
-// and ignored for one compatibility version because older Qt builds sent it.
+// 解析 AC 命令的 key=value 参数。
+// 这里选择严格拒绝未知字段，是为了让 Android/Qt 在开发阶段尽早发现拼写错误；
+// 否则一个写错的参数会被静默忽略，表现就像空调“不响应”。
+// eco 例外：它是旧版协议暴露过的字段，为兼容旧客户端保留一版，只解析并忽略。
 bool parseAcArgs(String args, AirConditioner *ac) {
   args.trim();
   int start = 0;
@@ -234,6 +247,7 @@ bool parseAcArgs(String args, AirConditioner *ac) {
         return false;
       }
     } else if (key == "temp") {
+      // temp 先转成数值，范围统一交给 acValidate() 按遥控器能力判断。
       ac->state.temp = value.toFloat();
     } else if (key == "fan") {
       if (!parseFan(value, &ac->state.fan)) {
@@ -265,6 +279,8 @@ bool parseAcArgs(String args, AirConditioner *ac) {
   }
 
   const AcValidationError validation = acValidate(*ac);
+  // 解析和能力校验分开做：解析只关心文本是否合法，
+  // acValidate() 再根据具体 remote 的能力判断能不能发送。
   if (validation != AcValidationError::Ok) {
     err(acValidationCode(validation), acValidationMessage(validation));
     return false;
@@ -272,8 +288,9 @@ bool parseAcArgs(String args, AirConditioner *ac) {
   return true;
 }
 
-// IRTEST is intentionally separate from AC control. It helps verify GPIO,
-// carrier frequency, duty cycle, and basic receiver visibility during wiring.
+// IRTEST 和空调控制分开处理，用来排查 GPIO、载波频率、
+// 占空比以及红外接收器是否能看到基础信号。
+// 它不依赖遥控器目录，所以即使空调协议还没匹配好，也能先验证硬件链路。
 bool parseIrTestArgs(String args, IrTestRequest *request) {
   args.trim();
   int start = 0;
@@ -363,13 +380,14 @@ void handleAcCommand(const String &args) {
     return;
   }
 
+  // OK 响应只返回关键状态，避免把整条命令原样回显导致上位机解析复杂。
   Serial.printf("OK SENT remote=%s action=%s power=%u mode=%s temp=%.1f\n",
                 ac.remote->id, acActionToString(ac.action),
                 ac.state.power ? 1 : 0,
                 acModeToString(ac.state.mode), ac.state.temp);
 }
 
-// Send a direct IR test frame/carrier and return the exact settings used.
+// 发送一条直接红外测试帧或连续载波，并返回实际使用的参数。
 void handleIrTestCommand(const String &args) {
   IrTestRequest request;
   if (!parseIrTestArgs(args, &request)) {
@@ -389,9 +407,10 @@ void handleIrTestCommand(const String &args) {
                 static_cast<unsigned long long>(request.data));
 }
 
-} // namespace
+} // 命名空间
 
 void serialProtocolPrintReady() {
+  // READY 中带 protocol/baud/gpio，方便上位机日志直接确认固件版本和硬件接线。
   Serial.printf("OK READY protocol=1 baud=%lu ir_gpio=%u\n",
                 static_cast<unsigned long>(kAcSerialBaud), kAcIrLedGpio);
 }
@@ -407,8 +426,8 @@ void serialProtocolProcessLine(String line) {
   String args = space < 0 ? "" : line.substring(space + 1);
   command.toUpperCase();
 
-  // Keep command names uppercase and arguments lowercase key=value text so the
-  // protocol stays simple for Android USB-serial libraries.
+  // 命令名统一转成大写，参数保持小写 key=value 文本，
+  // 这样 Android USB 串口库实现起来更简单；参数大小写在各解析函数里统一处理。
   if (command == "PING") {
     ok("PONG");
   } else if (command == "CATALOG") {

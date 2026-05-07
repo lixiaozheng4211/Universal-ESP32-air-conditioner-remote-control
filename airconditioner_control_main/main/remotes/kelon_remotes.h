@@ -2,5 +2,5 @@
 
 #include "ac_types.h"
 
-// Kelon remote candidates currently covered by IRac::sendAc().
+// 科龙遥控器候选，当前由 IRac::sendAc() 直接覆盖。
 extern const AcRemote kKelonStandardRemote;

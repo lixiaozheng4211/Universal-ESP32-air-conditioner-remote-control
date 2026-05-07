@@ -2,7 +2,7 @@
 
 #include "ac_types.h"
 
-// Panasonic remote candidates currently covered by IRac::sendAc().
+// 松下遥控器候选，当前均由 IRac::sendAc() 直接覆盖。
 extern const AcRemote kPanasonicLkeRemote;
 extern const AcRemote kPanasonicNkeRemote;
 extern const AcRemote kPanasonicDkeRemote;

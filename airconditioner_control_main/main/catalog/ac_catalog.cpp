@@ -17,12 +17,15 @@
 
 namespace {
 
-// Catalog layout:
-// - brand nodes are listed first in the user-facing order.
-// - remote nodes follow and point back to their brand by parent index.
-// - firstChild/nextSibling indexes form a multi-child tree without heap memory.
-// When adding a brand or remote, update these indexes together with the
-// corresponding AcRemote declaration in remotes/.
+// 目录布局设计：
+// - 品牌节点按用户界面展示顺序放在前面，保证 Qt/Android 看到的顺序稳定。
+// - 遥控器节点跟在后面，并通过 parent 下标指回所属品牌。
+// - firstChild/nextSibling 下标组成“父子 + 兄弟链表”，逻辑上是多叉树。
+// - 不使用动态链表或 vector，是为了避免 ESP32 长期运行时出现堆碎片，也方便放进只读数据区。
+//
+// 维护注意：
+// 新增品牌或遥控器时，需要同时更新 firstChild/nextSibling/parent 下标，
+// 并在 remotes/ 下声明对应 AcRemote。目录只放 IRac 已能直接发送或已有特殊后端的候选。
 const AcCatalogNode kCatalog[] = {
     {"midea", "Midea", AcNodeKind::Brand, -1, 15, 1, nullptr},
     {"gree", "Gree", AcNodeKind::Brand, -1, 17, 2, nullptr},
@@ -160,14 +163,17 @@ const AcCatalogNode kCatalog[] = {
      -1, -1, &kCarrierAc64Remote},
 };
 
-} // namespace
+} // 命名空间
 
+// 目录大小由静态数组推导，避免手动维护数量常量导致漏改。
 size_t acCatalogNodeCount() { return sizeof(kCatalog) / sizeof(kCatalog[0]); }
 
+// 返回 const 引用，外部只能读取节点，不能破坏目录树下标关系。
 const AcCatalogNode &acCatalogNodeAt(size_t index) { return kCatalog[index]; }
 
-// Host commands use stable remote ids, so lookup is linear over the small
-// catalog. This keeps code size low and avoids maintaining a separate map.
+// 上位机命令使用稳定的 remote id。目录规模很小，
+// 线性查找可以减少代码量，也不用维护额外映射表。
+// 这里查找发生在收到 AC 命令时，不是高频循环，所以 O(n) 成本可以接受。
 const AcRemote *acFindRemoteById(const String &id) {
   for (size_t i = 0; i < acCatalogNodeCount(); ++i) {
     const AcCatalogNode &node = kCatalog[i];
@@ -179,7 +185,8 @@ const AcRemote *acFindRemoteById(const String &id) {
   return nullptr;
 }
 
-// Count only usable remote candidates; brand nodes are structure only.
+// 只统计真正可用的遥控器候选，品牌节点只负责组织结构。
+// CATALOG 开头返回这个数量，方便上位机判断目录是否完整读完。
 uint8_t acRemoteCount() {
   uint8_t count = 0;
   for (size_t i = 0; i < acCatalogNodeCount(); ++i) {

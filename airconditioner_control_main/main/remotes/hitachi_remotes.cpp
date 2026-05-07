@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Hitachi entries expose the IRac-supported frame families and model variants.
+// 日立条目覆盖 IRac 已支持的帧族和型号变体。
 const AcRemote kHitachiAcRemote = {
     "hitachi_ac",
     "hitachi",

@@ -2,8 +2,8 @@
 
 #include "drivers/irac_backend.h"
 
-// Daikin protocols differ by frame length/model; each entry is tried as an
-// independent candidate during discovery.
+// 大金协议会按帧长度或型号区分。
+// 添加空调时每个条目都会作为独立候选逐个尝试。
 const AcRemote kDaikinArc433Remote = {
     "daikin_arc433",
     "daikin",

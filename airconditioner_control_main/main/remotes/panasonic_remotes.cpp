@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Panasonic models map to IRremoteESP8266 panasonic_ac_remote_model_t values.
+// 松下型号会映射到 IRremoteESP8266 的 panasonic_ac_remote_model_t。
 const AcRemote kPanasonicLkeRemote = {
     "panasonic_lke",
     "panasonic",

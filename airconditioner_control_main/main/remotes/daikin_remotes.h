@@ -2,7 +2,7 @@
 
 #include "ac_types.h"
 
-// Daikin remote candidates currently covered by IRac::sendAc().
+// 大金遥控器候选，当前均由 IRac::sendAc() 直接覆盖。
 extern const AcRemote kDaikinArc433Remote;
 extern const AcRemote kDaikinArc477Remote;
 extern const AcRemote kDaikin216Remote;

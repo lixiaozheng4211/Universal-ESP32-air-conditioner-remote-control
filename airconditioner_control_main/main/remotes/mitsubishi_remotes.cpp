@@ -2,8 +2,8 @@
 
 #include "drivers/irac_backend.h"
 
-// Mitsubishi Electric and Heavy use different IR protocols, so both families
-// are listed under one source module but separate brand ids in the catalog.
+// 三菱电机和三菱重工使用不同红外协议。
+// 两类候选放在同一个源文件里，但在目录中使用不同品牌 id。
 const AcRemote kMitsubishiAcRemote = {
     "mitsubishi_ac",
     "mitsubishi_electric",

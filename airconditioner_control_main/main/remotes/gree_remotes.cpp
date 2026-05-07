@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Gree candidates are model variants of the same IRremoteESP8266 GREE sender.
+// 格力候选是 IRremoteESP8266 GREE 发送器的不同型号变体。
 const AcRemote kGreeYaw1fRemote = {
     "gree_yaw1f",
     "gree",

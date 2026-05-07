@@ -2,8 +2,8 @@
 
 #include "drivers/irac_backend.h"
 
-// Haier has several frame formats in IRremoteESP8266; each entry exposes one
-// format/model as a candidate for the discovery workflow.
+// 海尔在 IRremoteESP8266 中有多种帧格式。
+// 每个条目暴露一种格式或型号，供添加空调流程逐个尝试。
 const AcRemote kHaierAcRemote = {
     "haier_ac",
     "haier",

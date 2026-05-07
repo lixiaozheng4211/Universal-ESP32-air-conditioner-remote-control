@@ -12,8 +12,7 @@ constexpr uint16_t kMaxCarrierMarkUsec = 16000;
 
 IRsend gTestIr(kAcIrLedGpio);
 
-// Validate before enabling the carrier so malformed serial input cannot leave
-// the IR LED driven for an excessive time.
+// 开启载波前先校验参数，避免错误串口输入让红外 LED 长时间工作。
 bool isValidRequest(const IrTestRequest &request) {
   if (request.freqHz < 30000 || request.freqHz > 60000) {
     return false;
@@ -27,8 +26,8 @@ bool isValidRequest(const IrTestRequest &request) {
   return request.dutyPercent >= 10 && request.dutyPercent <= 80;
 }
 
-// IRremoteESP8266 mark() accepts uint16_t microseconds, so long carrier tests
-// are split into safe chunks while preserving one continuous-looking carrier.
+// IRremoteESP8266 的 mark() 接收 uint16_t 微秒值。
+// 长时间载波会拆成安全的小段，同时保持看起来连续的载波输出。
 void sendCarrier(uint32_t freqHz, uint16_t carrierMs, uint8_t dutyPercent) {
   gTestIr.enableIROut(freqHz, dutyPercent);
 
@@ -44,8 +43,8 @@ void sendCarrier(uint32_t freqHz, uint16_t carrierMs, uint8_t dutyPercent) {
   gTestIr.space(0);
 }
 
-// NEC is a convenient known-good protocol for checking that receivers decode
-// something recognizable even before AC protocol matching starts.
+// NEC 是常见且容易识别的测试协议。
+// 在匹配空调协议前，可先确认接收器能解出一帧可识别数据。
 void sendNecFrame(const IrTestRequest &request) {
   gTestIr.sendGeneric(kNecHdrMark, kNecHdrSpace, kNecBitMark, kNecOneSpace,
                       kNecBitMark, kNecZeroSpace, kNecBitMark, kNecMinGap,
@@ -54,7 +53,7 @@ void sendNecFrame(const IrTestRequest &request) {
                       request.dutyPercent);
 }
 
-} // namespace
+} // 命名空间
 
 void irTestBegin() { gTestIr.begin(); }
 

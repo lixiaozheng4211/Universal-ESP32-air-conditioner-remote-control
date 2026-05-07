@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Samsung is currently represented by the generic IRac Samsung AC sender.
+// 三星当前使用 IRac 中的通用 Samsung AC 发送器。
 const AcRemote kSamsungAcRemote = {
     "samsung_ac",
     "samsung",

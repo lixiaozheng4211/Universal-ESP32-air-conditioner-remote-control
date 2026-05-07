@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Sharp entries are the IRac-supported A-series model variants.
+// 夏普条目是 IRac 已支持的 A 系列型号变体。
 const AcRemote kSharpA907Remote = {
     "sharp_a907",
     "sharp",

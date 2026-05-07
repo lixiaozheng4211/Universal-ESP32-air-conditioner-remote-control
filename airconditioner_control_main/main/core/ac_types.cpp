@@ -1,6 +1,6 @@
 #include "ac_types.h"
 
-// Convert firmware enums back to protocol strings for OK responses.
+// 把固件内部枚举转换回协议字符串，用于 OK 响应。
 const char *acModeToString(stdAc::opmode_t mode) {
   switch (mode) {
   case stdAc::opmode_t::kAuto:
@@ -18,7 +18,7 @@ const char *acModeToString(stdAc::opmode_t mode) {
   }
 }
 
-// Keep response text aligned with the accepted action= values.
+// 保持响应文本和 action= 可接受的取值一致。
 const char *acActionToString(AcAction action) {
   switch (action) {
   case AcAction::State:

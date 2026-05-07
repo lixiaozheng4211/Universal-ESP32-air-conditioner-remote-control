@@ -2,7 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
-// Toshiba AC has a direct IRac sender and needs no special backend.
+// Toshiba AC 有直接可用的 IRac 发送器，不需要特殊后端。
 const AcRemote kToshibaAcRemote = {
     "toshiba_ac",
     "toshiba",

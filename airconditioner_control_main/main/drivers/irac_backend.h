@@ -2,6 +2,6 @@
 
 #include "ac_types.h"
 
-// Generic backend built on IRremoteESP8266 IRac::sendAc(). Most supported
-// protocols can be described with decode_type_t + model and share this class.
+// 基于 IRremoteESP8266 IRac::sendAc() 的通用后端。
+// 大多数受支持协议都可以用 decode_type_t + model 描述，并共用这个类。
 extern const AcRemoteClass kIracRemoteClass;

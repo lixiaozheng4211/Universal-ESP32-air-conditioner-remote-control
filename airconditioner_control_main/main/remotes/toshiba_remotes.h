@@ -2,5 +2,5 @@
 
 #include "ac_types.h"
 
-// Toshiba remote candidates currently covered by IRac::sendAc().
+// 东芝遥控器候选，当前由 IRac::sendAc() 直接覆盖。
 extern const AcRemote kToshibaAcRemote;
