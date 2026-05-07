@@ -58,6 +58,7 @@ dependencies.lock.tmp
 # Qt build products
 qt_host/build/
 qt_host/build-*/
+qt_host/build_*/
 
 # Python and generic caches
 __pycache__/

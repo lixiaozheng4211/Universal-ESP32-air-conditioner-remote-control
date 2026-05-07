@@ -92,9 +92,11 @@ struct AcCatalogNode {
   const char *id;
   const char *name;
   AcNodeKind kind;
-  int8_t parent;
-  int8_t firstChild;
-  int8_t nextSibling;
+  // 目录后续会持续扩展品牌，节点数会超过 int8_t 的 127 上限。
+  // 用 int16_t 保存数组下标，仍然比指针省空间，也能保留 -1 表示“没有节点”。
+  int16_t parent;
+  int16_t firstChild;
+  int16_t nextSibling;
   const AcRemote *remote;
 };
 

@@ -13,6 +13,7 @@ idf_component_register(
         "remotes/gree_remotes.cpp"
         "remotes/haier_remotes.cpp"
         "remotes/hitachi_remotes.cpp"
+        "remotes/irac_extra_remotes.cpp"
         "remotes/kelon_remotes.cpp"
         "remotes/lg_remotes.cpp"
         "remotes/midea_remotes.cpp"

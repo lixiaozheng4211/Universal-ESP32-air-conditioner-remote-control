@@ -6,6 +6,7 @@
 #include "remotes/gree_remotes.h"
 #include "remotes/haier_remotes.h"
 #include "remotes/hitachi_remotes.h"
+#include "remotes/irac_extra_remotes.h"
 #include "remotes/kelon_remotes.h"
 #include "remotes/lg_remotes.h"
 #include "remotes/midea_remotes.h"
@@ -19,8 +20,9 @@
 namespace {
 
 // 目录布局设计：
-// - 品牌节点按用户界面展示顺序放在前面，保证 Qt/Android 看到的顺序稳定。
-// - 遥控器节点跟在后面，并通过 parent 下标指回所属品牌。
+// - 核心品牌节点按用户界面展示顺序放在前面，保证 Qt/Android 看到的顺序稳定。
+// - 后续扩展品牌追加在数组末尾，用 nextSibling 继续接到品牌链上，避免重排旧 remote id。
+// - 遥控器节点通过 parent 下标指回所属品牌。
 // - firstChild/nextSibling 下标组成“父子 + 兄弟链表”，逻辑上是多叉树。
 // - 不使用动态链表或 vector，是为了避免 ESP32 长期运行时出现堆碎片，也方便放进只读数据区。
 //
@@ -45,7 +47,7 @@ const AcCatalogNode kCatalog[] = {
     {"samsung", "Samsung", AcNodeKind::Brand, -1, 60, 13, nullptr},
     {"lg", "LG", AcNodeKind::Brand, -1, 61, 14, nullptr},
     {"carrier", "Carrier", AcNodeKind::Brand, -1, 66, 15, nullptr},
-    {"aux", "AUX", AcNodeKind::Brand, -1, 67, -1, nullptr},
+    {"aux", "AUX", AcNodeKind::Brand, -1, 67, 68, nullptr},
 
     {kMideaStandardRemote.id, kMideaStandardRemote.name, AcNodeKind::Remote, 0,
      -1, 17, &kMideaStandardRemote},
@@ -166,6 +168,130 @@ const AcCatalogNode kCatalog[] = {
 
     {kAuxElectraRemote.id, kAuxElectraRemote.name, AcNodeKind::Remote, 15, -1,
      -1, &kAuxElectraRemote},
+
+    {"airton", "Airton", AcNodeKind::Brand, -1, 69, 70, nullptr},
+    {kAirtonStandardRemote.id, kAirtonStandardRemote.name, AcNodeKind::Remote,
+     68, -1, -1, &kAirtonStandardRemote},
+
+    {"airwell", "Airwell", AcNodeKind::Brand, -1, 71, 72, nullptr},
+    {kAirwellStandardRemote.id, kAirwellStandardRemote.name,
+     AcNodeKind::Remote, 70, -1, -1, &kAirwellStandardRemote},
+
+    {"amcor", "Amcor", AcNodeKind::Brand, -1, 73, 74, nullptr},
+    {kAmcorStandardRemote.id, kAmcorStandardRemote.name, AcNodeKind::Remote,
+     72, -1, -1, &kAmcorStandardRemote},
+
+    {"argo", "Argo", AcNodeKind::Brand, -1, 75, 77, nullptr},
+    {kArgoWrem2Remote.id, kArgoWrem2Remote.name, AcNodeKind::Remote, 74, -1,
+     76, &kArgoWrem2Remote},
+    {kArgoWrem3Remote.id, kArgoWrem3Remote.name, AcNodeKind::Remote, 74, -1,
+     -1, &kArgoWrem3Remote},
+
+    {"bosch", "Bosch", AcNodeKind::Brand, -1, 78, 79, nullptr},
+    {kBosch144Remote.id, kBosch144Remote.name, AcNodeKind::Remote, 77, -1, -1,
+     &kBosch144Remote},
+
+    {"coolix", "Coolix", AcNodeKind::Brand, -1, 80, 81, nullptr},
+    {kCoolixStandardRemote.id, kCoolixStandardRemote.name, AcNodeKind::Remote,
+     79, -1, -1, &kCoolixStandardRemote},
+
+    {"corona", "Corona", AcNodeKind::Brand, -1, 82, 83, nullptr},
+    {kCoronaAcRemote.id, kCoronaAcRemote.name, AcNodeKind::Remote, 81, -1, -1,
+     &kCoronaAcRemote},
+
+    {"delonghi", "Delonghi", AcNodeKind::Brand, -1, 84, 85, nullptr},
+    {kDelonghiAcRemote.id, kDelonghiAcRemote.name, AcNodeKind::Remote, 83, -1,
+     -1, &kDelonghiAcRemote},
+
+    {"ecoclim", "Ecoclim", AcNodeKind::Brand, -1, 86, 87, nullptr},
+    {kEcoclimStandardRemote.id, kEcoclimStandardRemote.name,
+     AcNodeKind::Remote, 85, -1, -1, &kEcoclimStandardRemote},
+
+    {"eurom", "Eurom", AcNodeKind::Brand, -1, 88, 89, nullptr},
+    {kEuromStandardRemote.id, kEuromStandardRemote.name, AcNodeKind::Remote,
+     87, -1, -1, &kEuromStandardRemote},
+
+    {"fujitsu", "Fujitsu", AcNodeKind::Brand, -1, 90, 96, nullptr},
+    {kFujitsuArRah2eRemote.id, kFujitsuArRah2eRemote.name,
+     AcNodeKind::Remote, 89, -1, 91, &kFujitsuArRah2eRemote},
+    {kFujitsuArDb1Remote.id, kFujitsuArDb1Remote.name, AcNodeKind::Remote, 89,
+     -1, 92, &kFujitsuArDb1Remote},
+    {kFujitsuArReb1eRemote.id, kFujitsuArReb1eRemote.name,
+     AcNodeKind::Remote, 89, -1, 93, &kFujitsuArReb1eRemote},
+    {kFujitsuArJw2Remote.id, kFujitsuArJw2Remote.name, AcNodeKind::Remote, 89,
+     -1, 94, &kFujitsuArJw2Remote},
+    {kFujitsuArRy4Remote.id, kFujitsuArRy4Remote.name, AcNodeKind::Remote, 89,
+     -1, 95, &kFujitsuArRy4Remote},
+    {kFujitsuArRew4eRemote.id, kFujitsuArRew4eRemote.name,
+     AcNodeKind::Remote, 89, -1, -1, &kFujitsuArRew4eRemote},
+
+    {"goodweather", "Goodweather", AcNodeKind::Brand, -1, 97, 98, nullptr},
+    {kGoodweatherStandardRemote.id, kGoodweatherStandardRemote.name,
+     AcNodeKind::Remote, 96, -1, -1, &kGoodweatherStandardRemote},
+
+    {"kelvinator", "Kelvinator", AcNodeKind::Brand, -1, 99, 100, nullptr},
+    {kKelvinatorStandardRemote.id, kKelvinatorStandardRemote.name,
+     AcNodeKind::Remote, 98, -1, -1, &kKelvinatorStandardRemote},
+
+    {"mirage", "Mirage", AcNodeKind::Brand, -1, 101, 103, nullptr},
+    {kMirageKkg9ac1Remote.id, kMirageKkg9ac1Remote.name, AcNodeKind::Remote,
+     100, -1, 102, &kMirageKkg9ac1Remote},
+    {kMirageKkg29ac1Remote.id, kMirageKkg29ac1Remote.name, AcNodeKind::Remote,
+     100, -1, -1, &kMirageKkg29ac1Remote},
+
+    {"neoclima", "Neoclima", AcNodeKind::Brand, -1, 104, 105, nullptr},
+    {kNeoclimaStandardRemote.id, kNeoclimaStandardRemote.name,
+     AcNodeKind::Remote, 103, -1, -1, &kNeoclimaStandardRemote},
+
+    {"rhoss", "Rhoss", AcNodeKind::Brand, -1, 106, 107, nullptr},
+    {kRhossStandardRemote.id, kRhossStandardRemote.name, AcNodeKind::Remote,
+     105, -1, -1, &kRhossStandardRemote},
+
+    {"sanyo", "Sanyo", AcNodeKind::Brand, -1, 108, 110, nullptr},
+    {kSanyoAcRemote.id, kSanyoAcRemote.name, AcNodeKind::Remote, 107, -1, 109,
+     &kSanyoAcRemote},
+    {kSanyoAc88Remote.id, kSanyoAc88Remote.name, AcNodeKind::Remote, 107, -1,
+     -1, &kSanyoAc88Remote},
+
+    {"teknopoint", "Teknopoint", AcNodeKind::Brand, -1, 111, 112, nullptr},
+    {kTeknopointGz055be1Remote.id, kTeknopointGz055be1Remote.name,
+     AcNodeKind::Remote, 110, -1, -1, &kTeknopointGz055be1Remote},
+
+    {"technibel", "Technibel", AcNodeKind::Brand, -1, 113, 114, nullptr},
+    {kTechnibelAcRemote.id, kTechnibelAcRemote.name, AcNodeKind::Remote, 112,
+     -1, -1, &kTechnibelAcRemote},
+
+    {"teco", "Teco", AcNodeKind::Brand, -1, 115, 116, nullptr},
+    {kTecoStandardRemote.id, kTecoStandardRemote.name, AcNodeKind::Remote, 114,
+     -1, -1, &kTecoStandardRemote},
+
+    {"trotec", "Trotec", AcNodeKind::Brand, -1, 117, 119, nullptr},
+    {kTrotecStandardRemote.id, kTrotecStandardRemote.name, AcNodeKind::Remote,
+     116, -1, 118, &kTrotecStandardRemote},
+    {kTrotec3550Remote.id, kTrotec3550Remote.name, AcNodeKind::Remote, 116, -1,
+     -1, &kTrotec3550Remote},
+
+    {"truma", "Truma", AcNodeKind::Brand, -1, 120, 121, nullptr},
+    {kTrumaStandardRemote.id, kTrumaStandardRemote.name, AcNodeKind::Remote,
+     119, -1, -1, &kTrumaStandardRemote},
+
+    {"vestel", "Vestel", AcNodeKind::Brand, -1, 122, 123, nullptr},
+    {kVestelAcRemote.id, kVestelAcRemote.name, AcNodeKind::Remote, 121, -1, -1,
+     &kVestelAcRemote},
+
+    {"voltas", "Voltas", AcNodeKind::Brand, -1, 124, 125, nullptr},
+    {kVoltas122lzfRemote.id, kVoltas122lzfRemote.name, AcNodeKind::Remote, 123,
+     -1, -1, &kVoltas122lzfRemote},
+
+    {"whirlpool", "Whirlpool", AcNodeKind::Brand, -1, 126, 128, nullptr},
+    {kWhirlpoolDg11j13aRemote.id, kWhirlpoolDg11j13aRemote.name,
+     AcNodeKind::Remote, 125, -1, 127, &kWhirlpoolDg11j13aRemote},
+    {kWhirlpoolDg11j191Remote.id, kWhirlpoolDg11j191Remote.name,
+     AcNodeKind::Remote, 125, -1, -1, &kWhirlpoolDg11j191Remote},
+
+    {"transcold", "Transcold", AcNodeKind::Brand, -1, 129, -1, nullptr},
+    {kTranscoldStandardRemote.id, kTranscoldStandardRemote.name,
+     AcNodeKind::Remote, 128, -1, -1, &kTranscoldStandardRemote},
 };
 
 } // 命名空间

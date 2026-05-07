@@ -7,6 +7,6 @@
 constexpr uint8_t kAcIrLedGpio = 4;
 constexpr uint32_t kAcSerialBaud = 115200;
 
-// IRremoteESP8266 有些协议需要具体遥控器型号。
-// 这个值表示当前协议不需要指定型号。
+// AcRemote 结构里统一保留 model 字段，供格力、海尔、富士通等协议区分具体遥控器型号。
+// 但美的标准、AUX、Coolix 等协议没有型号分支，就统一填这个哨兵值表示“不需要指定 model”。
 constexpr int16_t kAcNoModel = -1;

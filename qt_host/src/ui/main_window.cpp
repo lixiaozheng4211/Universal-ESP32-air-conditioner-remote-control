@@ -160,7 +160,7 @@ void MainWindow::buildUi()
     connect(m_startButton, &QPushButton::clicked, this, &MainWindow::startKnownDevices);
     connect(m_addButton, &QPushButton::clicked, this, &MainWindow::addAirConditioner);
     connect(m_deleteButton, &QPushButton::clicked, this, &MainWindow::deleteAirConditioner);
-    connect(m_knownTable, &QTableWidget::cellClicked, this, &MainWindow::openKnownDeviceControl);
+    connect(m_knownTable, &QTableWidget::cellDoubleClicked, this, &MainWindow::openKnownDeviceControl);
     connect(m_ir38TestButton, &QPushButton::clicked, this, &MainWindow::testIr38k);
     connect(m_ir40TestButton, &QPushButton::clicked, this, &MainWindow::testIr40k);
 }
@@ -197,7 +197,7 @@ void MainWindow::reloadKnownDevices()
 
 void MainWindow::refreshKnownTable()
 {
-    // 表格只展示关键状态。点击任意单元格会进入详情控制窗口。
+    // 表格只展示关键状态。单击只负责选中，双击才进入详情控制窗口。
     m_knownTable->setRowCount(m_knownDevices.size());
     for (int row = 0; row < m_knownDevices.size(); ++row) {
         const auto &device = m_knownDevices[row];
