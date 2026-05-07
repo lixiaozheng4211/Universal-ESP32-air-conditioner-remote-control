@@ -7,6 +7,7 @@ idf_component_register(
         "protocol/serial_protocol.cpp"
         "drivers/irac_backend.cpp"
         "drivers/ir_test.cpp"
+        "remotes/aux_remotes.cpp"
         "remotes/carrier_remotes.cpp"
         "remotes/daikin_remotes.cpp"
         "remotes/gree_remotes.cpp"

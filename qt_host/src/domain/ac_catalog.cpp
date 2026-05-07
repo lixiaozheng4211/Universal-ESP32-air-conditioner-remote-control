@@ -29,6 +29,7 @@ QString localizedBrandName(const QString& id, const QString& fallback) {
       {"samsung", QStringLiteral("三星")},
       {"lg", QStringLiteral("LG")},
       {"carrier", QStringLiteral("开利")},
+      {"aux", QStringLiteral("奥克斯")},
   };
   return names.value(id, fallback.isEmpty() ? id : fallback);
 }
@@ -214,6 +215,10 @@ QVector<AcBrand> defaultAcCatalog() {
            remote("lg_6711a20083v", "lg", "LG 6711A20083V"),
        }},
       {"carrier", "开利", {remote("carrier_ac64", "carrier", "Carrier AC64")}},
+      {"aux",
+       "奥克斯",
+       {remote("aux_electra", "aux", "AUX YKR-T/011", 16, 32, true, true,
+               true)}},
   };
 }
 

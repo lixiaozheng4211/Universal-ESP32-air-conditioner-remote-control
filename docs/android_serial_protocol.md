@@ -68,9 +68,9 @@ CATALOG
 响应格式示例：
 
 ```text
-OK CATALOG remotes=51
-CAT BRAND id=midea name="Midea" first_child=15 next_sibling=1
-CAT REMOTE id=midea_standard brand=midea name="Midea standard" temp=17-30 fan=1 swingv=1 swingh=0 driver="IRac" next_sibling=16
+OK CATALOG remotes=52
+CAT BRAND id=midea name="Midea" first_child=16 next_sibling=1
+CAT REMOTE id=midea_standard brand=midea name="Midea standard" temp=17-30 fan=1 swingv=1 swingh=0 driver="IRac" next_sibling=17
 CAT REMOTE id=midea_rn02s13 brand=midea name="Midea RN02S13" temp=17-30 fan=1 swingv=1 swingh=1 driver="Midea RN02S13" next_sibling=-1
 OK CATALOG END
 ```
@@ -83,7 +83,7 @@ Android 端至少需要保存 `CAT REMOTE` 行中的：
 - `temp`：温度范围。
 - `fan` / `swingv` / `swingh`：能力开关。
 
-当前版本只暴露 IRremoteESP8266/IRac 能直接发送的品牌和协议。内置品牌包括：美的、格力、海尔、TCL、科龙、大金、日立、松下、三菱电机、三菱重工、东芝、夏普、三星、LG、开利。奥克斯、小米、海信、长虹等没有直接发送协议名的品牌先不加入本版目录。
+当前版本只暴露 IRremoteESP8266/IRac 能直接发送的品牌和协议。内置品牌包括：美的、格力、海尔、TCL、科龙、大金、日立、松下、三菱电机、三菱重工、东芝、夏普、三星、LG、开利、奥克斯。小米、海信、长虹等没有直接发送协议名的品牌先不加入本版目录。
 
 ## 3. 空调控制命令
 

@@ -42,7 +42,7 @@ AC remote=midea_standard power=1 mode=cool temp=26 fan=auto swingv=off swingh=of
 AC remote=midea_rn02s13 action=temp power=1 mode=cool temp=27 fan=auto swingv=off swingh=off
 ```
 
-`CATALOG` 会输出当前固件内置的品牌和遥控器候选。当前版本暴露 IRremoteESP8266/IRac 能直接发送的品牌：美的、格力、海尔、TCL、科龙、大金、日立、松下、三菱电机、三菱重工、东芝、夏普、三星、LG、开利。
+`CATALOG` 会输出当前固件内置的品牌和遥控器候选。当前版本暴露 IRremoteESP8266/IRac 能直接发送的品牌：美的、格力、海尔、TCL、科龙、大金、日立、松下、三菱电机、三菱重工、东芝、夏普、三星、LG、开利、奥克斯。
 
 `IRTEST` 用来排查硬件发射链路。默认发送 NEC 测试帧，普通红外接收模块更容易识别；如果要用示波器看连续载波，可以使用：
 
