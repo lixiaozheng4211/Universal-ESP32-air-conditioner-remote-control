@@ -2,6 +2,7 @@
 
 #include "drivers/irac_backend.h"
 
+// Gree candidates are model variants of the same IRremoteESP8266 GREE sender.
 const AcRemote kGreeYaw1fRemote = {
     "gree_yaw1f",
     "gree",

@@ -9,6 +9,7 @@ constexpr uint16_t kSpecialRemoteGapMs = 260;
 
 IRsendMeidi gRn02s13(kAcIrLedGpio);
 
+// Map normalized modes to the command numbers expected by the RN02S13 helper.
 int mideaMode(stdAc::opmode_t mode) {
   switch (mode) {
   case stdAc::opmode_t::kCool:
@@ -25,6 +26,7 @@ int mideaMode(stdAc::opmode_t mode) {
   }
 }
 
+// RN02S13 has its own fan numbering, separate from stdAc::fanspeed_t.
 int mideaFan(stdAc::fanspeed_t fan) {
   switch (fan) {
   case stdAc::fanspeed_t::kMin:
@@ -42,12 +44,17 @@ int mideaFan(stdAc::fanspeed_t fan) {
   }
 }
 
+// The old local driver needs its timing configured before use. These values
+// are preserved from the known-working Midea implementation.
 void beginRn02s13() {
   gRn02s13.begin_2();
   gRn02s13.setZBPL(40);
   gRn02s13.setCodeTime(500, 1600, 550, 4400, 4400, 5220);
 }
 
+// Full-state sync is used for discovery and backward-compatible AC commands.
+// RN02S13 emits separate IR commands for each property, so UI detail controls
+// should prefer sendRn02s13Action() to avoid multiple beeps.
 bool sendRn02s13(const AcRemote &, const AcState &state) {
   if (!state.power) {
     gRn02s13.setPowers(false);
@@ -63,10 +70,6 @@ bool sendRn02s13(const AcRemote &, const AcState &state) {
   gRn02s13.setTemps(state.temp);
   delay(kSpecialRemoteGapMs);
 
-  if (state.eco) {
-    gRn02s13.setEco(true);
-    delay(kSpecialRemoteGapMs);
-  }
   if (state.swingv == stdAc::swingv_t::kAuto) {
     gRn02s13.setSwingUD(true);
     delay(kSpecialRemoteGapMs);
@@ -77,6 +80,7 @@ bool sendRn02s13(const AcRemote &, const AcState &state) {
   return true;
 }
 
+// Single-action path: one serial command maps to one RN02S13 IR command.
 bool sendRn02s13Action(const AcRemote &remote, const AcState &state,
                        AcAction action) {
   switch (action) {
@@ -89,8 +93,14 @@ bool sendRn02s13Action(const AcRemote &remote, const AcState &state,
   case AcAction::Mode:
     gRn02s13.setModes(mideaMode(state.mode));
     return true;
+  case AcAction::Fan:
+    gRn02s13.setFanSpeeds(mideaFan(state.fan));
+    return true;
   case AcAction::SwingV:
     gRn02s13.setSwingUD(state.swingv == stdAc::swingv_t::kAuto);
+    return true;
+  case AcAction::SwingH:
+    gRn02s13.setSwingLR(state.swingh == stdAc::swingh_t::kAuto);
     return true;
   case AcAction::State:
   default:

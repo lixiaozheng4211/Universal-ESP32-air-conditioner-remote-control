@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 // 上位机侧保存的“空调目标状态”。
@@ -13,7 +14,6 @@ struct AcState {
   QString fan = "auto";
   QString swingv = "off";
   QString swingh = "off";
-  bool eco = false;
 };
 
 // 一个具体的遥控器候选项。
@@ -25,7 +25,7 @@ struct AcRemote {
   QString name;
   int minTemp = 17;
   int maxTemp = 30;
-  bool supportsEco = false;
+  bool supportsFan = true;
   bool supportsSwingV = false;
   bool supportsSwingH = false;
 };
@@ -50,6 +50,10 @@ struct KnownAcDevice {
 // 第一版静态目录。后续可以改成启动时发送 CATALOG，从 ESP32 自动读取目录。
 QVector<AcBrand> defaultAcCatalog();
 
+// 解析 ESP32 返回的 CATALOG 文本行。解析失败或目录为空时返回空列表，
+// 调用方继续使用 defaultAcCatalog() 作为 fallback。
+QVector<AcBrand> catalogFromCatalogLines(const QStringList& lines);
+
 // 按 remoteId 在品牌树里查找遥控器，用于显示名称、能力限制和控制界面。
 const AcRemote* findRemote(const QVector<AcBrand>& catalog,
                            const QString& remoteId);
@@ -59,7 +63,7 @@ const AcRemote* findRemote(const QVector<AcBrand>& catalog,
 QString buildAcCommand(const QString& remoteId, const AcState& state);
 
 // 单项动作命令：用于详情控制界面和一键开机。
-// action=power/temp/mode/swingv 能让固件只发被改动的那一个红外动作。
+// action=power/temp/mode/fan/swingv/swingh 能让固件只发被改动的那一个动作。
 QString buildAcActionCommand(const QString& remoteId, const QString& action,
                              const AcState& state);
 

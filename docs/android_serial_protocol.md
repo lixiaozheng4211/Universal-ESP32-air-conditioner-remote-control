@@ -54,7 +54,7 @@ HELP
 示例响应：
 
 ```text
-OK COMMANDS PING CATALOG AC(action=state/power/temp/mode/swingv) IRTEST
+OK COMMANDS PING CATALOG AC(action=state/power/temp/mode/fan/swingv/swingh) IRTEST
 ```
 
 ### CATALOG
@@ -68,10 +68,10 @@ CATALOG
 响应格式示例：
 
 ```text
-OK CATALOG remotes=10
-CAT BRAND id=midea name="Midea" first_child=1 next_sibling=3
-CAT REMOTE id=midea_standard brand=midea name="Midea standard" temp=17-30 eco=1 swingv=1 swingh=0 driver="IRac" next_sibling=2
-CAT REMOTE id=midea_rn02s13 brand=midea name="Midea RN02S13" temp=17-30 eco=1 swingv=1 swingh=1 driver="Midea RN02S13" next_sibling=-1
+OK CATALOG remotes=51
+CAT BRAND id=midea name="Midea" first_child=15 next_sibling=1
+CAT REMOTE id=midea_standard brand=midea name="Midea standard" temp=17-30 fan=1 swingv=1 swingh=0 driver="IRac" next_sibling=16
+CAT REMOTE id=midea_rn02s13 brand=midea name="Midea RN02S13" temp=17-30 fan=1 swingv=1 swingh=1 driver="Midea RN02S13" next_sibling=-1
 OK CATALOG END
 ```
 
@@ -81,16 +81,16 @@ Android 端至少需要保存 `CAT REMOTE` 行中的：
 - `brand`：用于 UI 分组。
 - `name`：用于 UI 展示。
 - `temp`：温度范围。
-- `swingv` / `swingh` / `eco`：能力开关。
+- `fan` / `swingv` / `swingh`：能力开关。
 
-当前版本提供三种品牌：美的、格力、海尔。
+当前版本只暴露 IRremoteESP8266/IRac 能直接发送的品牌和协议。内置品牌包括：美的、格力、海尔、TCL、科龙、大金、日立、松下、三菱电机、三菱重工、东芝、夏普、三星、LG、开利。奥克斯、小米、海信、长虹等没有直接发送协议名的品牌先不加入本版目录。
 
 ## 3. 空调控制命令
 
 空调控制命令统一使用 `AC`：
 
 ```text
-AC remote=<id> action=<action> power=<0|1> mode=<auto|cool|heat|dry|fan> temp=<17..30> fan=<auto|low|med|high|max> swingv=<off|auto> swingh=<off|auto> eco=<0|1>
+AC remote=<id> action=<action> power=<0|1> mode=<auto|cool|heat|dry|fan> temp=<17..30> fan=<auto|low|med|high|max> swingv=<off|auto> swingh=<off|auto>
 ```
 
 字段说明：
@@ -105,7 +105,8 @@ AC remote=<id> action=<action> power=<0|1> mode=<auto|cool|heat|dry|fan> temp=<1
 | `fan` | 是 | 风速，建议默认 `auto` |
 | `swingv` | 是 | 上下风，`off` 或 `auto` |
 | `swingh` | 是 | 左右风，`off` 或 `auto` |
-| `eco` | 是 | 节能模式，`1` 开启，`0` 关闭 |
+
+兼容说明：旧客户端如果仍发送 `eco=0` 或 `eco=1`，当前固件会解析并忽略该字段；新客户端不要再发送 `eco`。
 
 ### action 取值
 
@@ -115,7 +116,9 @@ AC remote=<id> action=<action> power=<0|1> mode=<auto|cool|heat|dry|fan> temp=<1
 | `power` | 只发送开/关机动作 |
 | `temp` | 只发送温度调整动作 |
 | `mode` | 只发送模式调整动作 |
+| `fan` | 只发送风速调整动作 |
 | `swingv` | 只发送上下风动作 |
+| `swingh` | 只发送左右风动作 |
 
 建议 Android 端日常控制优先使用单项 `action`。例如只调温时发送 `action=temp`，不要每次都发送完整状态。这样可以避免部分遥控器一次控制触发多条红外码。
 
@@ -130,37 +133,49 @@ PING
 开机：
 
 ```text
-AC remote=midea_rn02s13 action=power power=1 mode=cool temp=26 fan=auto swingv=off swingh=off eco=0
+AC remote=midea_rn02s13 action=power power=1 mode=cool temp=26 fan=auto swingv=off swingh=off
 ```
 
 关机：
 
 ```text
-AC remote=midea_rn02s13 action=power power=0 mode=cool temp=26 fan=auto swingv=off swingh=off eco=0
+AC remote=midea_rn02s13 action=power power=0 mode=cool temp=26 fan=auto swingv=off swingh=off
 ```
 
 调温到 27 摄氏度：
 
 ```text
-AC remote=midea_rn02s13 action=temp power=1 mode=cool temp=27 fan=auto swingv=off swingh=off eco=0
+AC remote=midea_rn02s13 action=temp power=1 mode=cool temp=27 fan=auto swingv=off swingh=off
 ```
 
 切换制热：
 
 ```text
-AC remote=midea_rn02s13 action=mode power=1 mode=heat temp=26 fan=auto swingv=off swingh=off eco=0
+AC remote=midea_rn02s13 action=mode power=1 mode=heat temp=26 fan=auto swingv=off swingh=off
+```
+
+调整风速：
+
+```text
+AC remote=midea_rn02s13 action=fan power=1 mode=cool temp=26 fan=high swingv=off swingh=off
 ```
 
 打开上下风：
 
 ```text
-AC remote=midea_rn02s13 action=swingv power=1 mode=cool temp=26 fan=auto swingv=auto swingh=off eco=0
+AC remote=midea_rn02s13 action=swingv power=1 mode=cool temp=26 fan=auto swingv=auto swingh=off
+```
+
+打开左右风：
+
+```text
+AC remote=midea_rn02s13 action=swingh power=1 mode=cool temp=26 fan=auto swingv=off swingh=auto
 ```
 
 添加空调时测试完整状态：
 
 ```text
-AC remote=midea_standard power=1 mode=cool temp=26 fan=auto swingv=off swingh=off eco=0
+AC remote=midea_standard power=1 mode=cool temp=26 fan=auto swingv=off swingh=off
 ```
 
 ## 5. 响应与错误处理
@@ -175,7 +190,7 @@ OK SENT remote=midea_rn02s13 action=temp power=1 mode=cool temp=27.0
 
 ```text
 ERR UNKNOWN_REMOTE midea_xxx
-ERR BAD_ACTION use state/power/temp/mode/swingv
+ERR BAD_ACTION use state/power/temp/mode/fan/swingv/swingh
 ERR BAD_TEMP temperature out of remote range
 ERR SEND_FAILED midea_rn02s13
 ```

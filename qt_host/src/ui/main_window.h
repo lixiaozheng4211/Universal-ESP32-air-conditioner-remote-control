@@ -10,6 +10,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QStandardItemModel>
+#include <QStringList>
 #include <QTableWidget>
 #include <QTreeView>
 #include <QComboBox>
@@ -48,6 +49,7 @@ private:
     void populateCatalogTree();
     void reloadKnownDevices();
     void refreshKnownTable();
+    void handleCatalogLine(const QString &line);
 
     // 本地空调库和串口发送辅助函数。
     bool saveKnownDevices();
@@ -57,6 +59,8 @@ private:
     // 固定遥控器目录和用户已经匹配保存的空调列表。
     QVector<AcBrand> m_catalog;
     QVector<KnownAcDevice> m_knownDevices;
+    QStringList m_pendingCatalogLines;
+    bool m_receivingCatalog = false;
 
     // 业务模块：JSON 存储、串口、批量开机定时器。
     AcStore m_store;

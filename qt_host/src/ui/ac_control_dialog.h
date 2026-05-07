@@ -18,7 +18,7 @@ class AcControlDialog : public QDialog {
     Q_OBJECT
 
 public:
-    // action 对应固件协议里的 action=power/temp/mode/swingv。
+    // action 对应固件协议里的 action=power/temp/mode/fan/swingv/swingh。
     // state 是执行这个 action 后希望保存的完整状态快照。
     using SendAction = std::function<bool(const QString &action, const AcState &state)>;
 
@@ -34,7 +34,7 @@ private:
     // 把 m_state 同步回界面控件。发送成功或切换设备状态后调用。
     void syncUiFromState();
 
-    // 从界面读取温度、模式、上下风，形成一个候选状态。
+    // 从界面读取温度、模式、风速、上下风、左右风，形成一个候选状态。
     AcState uiState() const;
 
     // “发送控制”按钮入口：比较 m_state 和 uiState，只发送实际变化的项。
@@ -55,6 +55,8 @@ private:
     QPushButton *m_powerOffButton = nullptr;
     QSpinBox *m_tempSpin = nullptr;
     QComboBox *m_modeCombo = nullptr;
+    QComboBox *m_fanCombo = nullptr;
     QCheckBox *m_swingVCheck = nullptr;
+    QCheckBox *m_swingHCheck = nullptr;
     QPushButton *m_sendButton = nullptr;
 };

@@ -17,21 +17,29 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets SerialPort)
 
 # 把所有业务源码都显式列在目标里，方便 IDE 展示，也方便后续拆模块时查找。
 qt_add_executable(universal_ac_host
-    src/ac_catalog.cpp
-    src/ac_catalog.h
-    src/ac_control_dialog.cpp
-    src/ac_control_dialog.h
-    src/ac_discovery_wizard.cpp
-    src/ac_discovery_wizard.h
-    src/ac_store.cpp
-    src/ac_store.h
-    src/known_ac_runner.cpp
-    src/known_ac_runner.h
+    src/domain/ac_catalog.cpp
+    src/domain/ac_catalog.h
+    src/domain/ac_store.cpp
+    src/domain/ac_store.h
     src/main.cpp
-    src/main_window.cpp
-    src/main_window.h
-    src/serial_controller.cpp
-    src/serial_controller.h
+    src/serial/serial_controller.cpp
+    src/serial/serial_controller.h
+    src/ui/ac_control_dialog.cpp
+    src/ui/ac_control_dialog.h
+    src/ui/main_window.cpp
+    src/ui/main_window.h
+    src/workflow/ac_discovery_wizard.cpp
+    src/workflow/ac_discovery_wizard.h
+    src/workflow/known_ac_runner.cpp
+    src/workflow/known_ac_runner.h
+)
+
+target_include_directories(universal_ac_host
+    PRIVATE
+        src/domain
+        src/serial
+        src/ui
+        src/workflow
 )
 
 target_link_libraries(universal_ac_host

@@ -16,6 +16,10 @@ void addMode(QComboBox* combo, const QString& value, const QString& label) {
   combo->addItem(label, value);
 }
 
+void addFan(QComboBox* combo, const QString& value, const QString& label) {
+  combo->addItem(label, value);
+}
+
 }  // namespace
 
 AcControlDialog::AcControlDialog(QWidget* parent, const KnownAcDevice& device,
@@ -32,7 +36,7 @@ AcControlDialog::AcControlDialog(QWidget* parent, const KnownAcDevice& device,
 AcState AcControlDialog::state() const { return m_state; }
 
 void AcControlDialog::buildUi() {
-  // 详情页保持轻量：开关机是立即动作，温度/模式/上下风需要点击“发送控制”。
+  // 详情页保持轻量：开关机是立即动作，其它状态需要点击“发送控制”。
   // 这样用户可以先调整多个控件，再由 sendUiState 按固定顺序逐项发送。
   setWindowTitle(QStringLiteral("空调控制"));
   setMinimumWidth(360);
@@ -84,11 +88,29 @@ void AcControlDialog::buildUi() {
   m_modeCombo->setMinimumHeight(34);
   formLayout->addRow(QStringLiteral("模式"), m_modeCombo);
 
+  m_fanCombo = new QComboBox(this);
+  addFan(m_fanCombo, QStringLiteral("auto"), QStringLiteral("自动"));
+  addFan(m_fanCombo, QStringLiteral("low"), QStringLiteral("低风"));
+  addFan(m_fanCombo, QStringLiteral("med"), QStringLiteral("中风"));
+  addFan(m_fanCombo, QStringLiteral("high"), QStringLiteral("高风"));
+  addFan(m_fanCombo, QStringLiteral("max"), QStringLiteral("强风"));
+  m_fanCombo->setMinimumHeight(34);
+  if (m_remote && !m_remote->supportsFan) {
+    m_fanCombo->setEnabled(false);
+  }
+  formLayout->addRow(QStringLiteral("风速"), m_fanCombo);
+
   m_swingVCheck = new QCheckBox(QStringLiteral("上下风"), this);
   if (m_remote && !m_remote->supportsSwingV) {
     m_swingVCheck->setEnabled(false);
   }
   formLayout->addRow(QString(), m_swingVCheck);
+
+  m_swingHCheck = new QCheckBox(QStringLiteral("左右风"), this);
+  if (m_remote && !m_remote->supportsSwingH) {
+    m_swingHCheck->setEnabled(false);
+  }
+  formLayout->addRow(QString(), m_swingHCheck);
   rootLayout->addLayout(formLayout);
 
   m_sendButton =
@@ -122,21 +144,30 @@ void AcControlDialog::syncUiFromState() {
       modeIndex >= 0 ? modeIndex
                      : m_modeCombo->findData(QStringLiteral("cool")));
 
+  const int fanIndex = m_fanCombo->findData(m_state.fan);
+  m_fanCombo->setCurrentIndex(
+      fanIndex >= 0 ? fanIndex : m_fanCombo->findData(QStringLiteral("auto")));
+
   m_swingVCheck->setChecked(m_state.swingv == QStringLiteral("auto"));
+  m_swingHCheck->setChecked(m_state.swingh == QStringLiteral("auto"));
 }
 
 AcState AcControlDialog::uiState() const {
-  // 以 m_state 为基础，是为了保留当前未在界面展示的字段，例如 fan、eco。
-  // 当前详情页只开放温度、模式、上下风，其它功能先保持原值或固定关闭。
+  // 以 m_state 为基础，是为了保留未来可能添加、但当前没有展示的字段。
   AcState state = m_state;
   state.temp = m_tempSpin->value();
   state.mode = m_modeCombo->currentData().toString();
+  state.fan = (m_remote && m_remote->supportsFan)
+                  ? m_fanCombo->currentData().toString()
+                  : QStringLiteral("auto");
   state.swingv =
       (m_remote && m_remote->supportsSwingV && m_swingVCheck->isChecked())
           ? QStringLiteral("auto")
           : QStringLiteral("off");
-  state.swingh = QStringLiteral("off");
-  state.eco = false;
+  state.swingh =
+      (m_remote && m_remote->supportsSwingH && m_swingHCheck->isChecked())
+          ? QStringLiteral("auto")
+          : QStringLiteral("off");
   return state;
 }
 
@@ -158,7 +189,7 @@ bool AcControlDialog::sendUiState() {
     return true;
   };
 
-  // 固定顺序和固件协议保持一致：power -> mode -> temp -> swingv。
+  // 固定顺序和固件协议保持一致：power -> mode -> temp -> fan -> swingv -> swingh。
   // 对 RN02S13 这种非完整状态遥控器，每一步都会变成一条独立红外码。
   if (nextState.power != workingState.power) {
     AcState stepState = workingState;
@@ -184,10 +215,26 @@ bool AcControlDialog::sendUiState() {
       return false;
     }
   }
+  if (nextState.fan != workingState.fan) {
+    AcState stepState = workingState;
+    stepState.fan = nextState.fan;
+    if (!sendStep(QStringLiteral("fan"), stepState)) {
+      m_statusLabel->setText(QStringLiteral("发送失败"));
+      return false;
+    }
+  }
   if (nextState.swingv != workingState.swingv) {
     AcState stepState = workingState;
     stepState.swingv = nextState.swingv;
     if (!sendStep(QStringLiteral("swingv"), stepState)) {
+      m_statusLabel->setText(QStringLiteral("发送失败"));
+      return false;
+    }
+  }
+  if (nextState.swingh != workingState.swingh) {
+    AcState stepState = workingState;
+    stepState.swingh = nextState.swingh;
+    if (!sendStep(QStringLiteral("swingh"), stepState)) {
       m_statusLabel->setText(QStringLiteral("发送失败"));
       return false;
     }

@@ -14,6 +14,36 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
+namespace {
+
+QString modeDisplayName(const QString &mode)
+{
+    if (mode == QStringLiteral("auto")) return QStringLiteral("自动");
+    if (mode == QStringLiteral("cool")) return QStringLiteral("制冷");
+    if (mode == QStringLiteral("heat")) return QStringLiteral("制热");
+    if (mode == QStringLiteral("dry")) return QStringLiteral("除湿");
+    if (mode == QStringLiteral("fan")) return QStringLiteral("送风");
+    return mode;
+}
+
+QString fanDisplayName(const QString &fan)
+{
+    if (fan == QStringLiteral("auto")) return QStringLiteral("自动");
+    if (fan == QStringLiteral("low")) return QStringLiteral("低风");
+    if (fan == QStringLiteral("med")) return QStringLiteral("中风");
+    if (fan == QStringLiteral("high")) return QStringLiteral("高风");
+    if (fan == QStringLiteral("max")) return QStringLiteral("强风");
+    return fan;
+}
+
+QString swingDisplayName(const QString &swing)
+{
+    return swing == QStringLiteral("auto") ? QStringLiteral("自动")
+                                           : QStringLiteral("关闭");
+}
+
+}  // namespace
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_catalog(defaultAcCatalog())
@@ -93,7 +123,7 @@ void MainWindow::buildUi()
     m_catalogTree->setHeaderHidden(true);
 
     m_knownTable = new QTableWidget(splitter);
-    m_knownTable->setColumnCount(6);
+    m_knownTable->setColumnCount(9);
     m_knownTable->setHorizontalHeaderLabels({
         QStringLiteral("名称"),
         QStringLiteral("品牌"),
@@ -101,6 +131,9 @@ void MainWindow::buildUi()
         QStringLiteral("状态"),
         QStringLiteral("温度"),
         QStringLiteral("模式"),
+        QStringLiteral("风速"),
+        QStringLiteral("上下风"),
+        QStringLiteral("左右风"),
     });
     m_knownTable->horizontalHeader()->setStretchLastSection(true);
     m_knownTable->verticalHeader()->setVisible(false);
@@ -174,9 +207,40 @@ void MainWindow::refreshKnownTable()
         m_knownTable->setItem(row, 2, new QTableWidgetItem(remote ? remote->name : device.remoteId));
         m_knownTable->setItem(row, 3, new QTableWidgetItem(device.state.power ? QStringLiteral("开") : QStringLiteral("关")));
         m_knownTable->setItem(row, 4, new QTableWidgetItem(QString::number(device.state.temp)));
-        m_knownTable->setItem(row, 5, new QTableWidgetItem(device.state.mode));
+        m_knownTable->setItem(row, 5, new QTableWidgetItem(modeDisplayName(device.state.mode)));
+        m_knownTable->setItem(row, 6, new QTableWidgetItem(fanDisplayName(device.state.fan)));
+        m_knownTable->setItem(row, 7, new QTableWidgetItem(swingDisplayName(device.state.swingv)));
+        m_knownTable->setItem(row, 8, new QTableWidgetItem(swingDisplayName(device.state.swingh)));
     }
     m_knownTable->resizeColumnsToContents();
+}
+
+void MainWindow::handleCatalogLine(const QString &line)
+{
+    if (line == QStringLiteral("OK CATALOG END")) {
+        if (!m_receivingCatalog) {
+            return;
+        }
+
+        const QVector<AcBrand> parsedCatalog = catalogFromCatalogLines(m_pendingCatalogLines);
+        m_receivingCatalog = false;
+        m_pendingCatalogLines.clear();
+        if (!parsedCatalog.isEmpty()) {
+            m_catalog = parsedCatalog;
+            populateCatalogTree();
+        }
+        return;
+    }
+
+    if (line.startsWith(QStringLiteral("OK CATALOG "))) {
+        m_receivingCatalog = true;
+        m_pendingCatalogLines.clear();
+        return;
+    }
+
+    if (m_receivingCatalog && line.startsWith(QStringLiteral("CAT "))) {
+        m_pendingCatalogLines.push_back(line);
+    }
 }
 
 void MainWindow::refreshPorts()
@@ -207,6 +271,7 @@ void MainWindow::toggleConnection()
     }
     m_connectButton->setText(QStringLiteral("断开"));
     sendCommand(QStringLiteral("PING"));
+    sendCommand(QStringLiteral("CATALOG"));
 }
 
 void MainWindow::addAirConditioner()
@@ -355,6 +420,7 @@ void MainWindow::appendSerialLine(const QString &line)
     // RX 日志带时间戳，方便和 TX 对照分析固件响应延迟。
     m_log->appendPlainText(QStringLiteral("%1  RX  %2")
         .arg(QDateTime::currentDateTime().toString("HH:mm:ss"), line));
+    handleCatalogLine(line);
 }
 
 void MainWindow::updateSerialStatus(const QString &status)

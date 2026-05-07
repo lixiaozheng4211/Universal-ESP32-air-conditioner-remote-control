@@ -12,6 +12,8 @@ constexpr uint16_t kMaxCarrierMarkUsec = 16000;
 
 IRsend gTestIr(kAcIrLedGpio);
 
+// Validate before enabling the carrier so malformed serial input cannot leave
+// the IR LED driven for an excessive time.
 bool isValidRequest(const IrTestRequest &request) {
   if (request.freqHz < 30000 || request.freqHz > 60000) {
     return false;
@@ -25,6 +27,8 @@ bool isValidRequest(const IrTestRequest &request) {
   return request.dutyPercent >= 10 && request.dutyPercent <= 80;
 }
 
+// IRremoteESP8266 mark() accepts uint16_t microseconds, so long carrier tests
+// are split into safe chunks while preserving one continuous-looking carrier.
 void sendCarrier(uint32_t freqHz, uint16_t carrierMs, uint8_t dutyPercent) {
   gTestIr.enableIROut(freqHz, dutyPercent);
 
@@ -40,6 +44,8 @@ void sendCarrier(uint32_t freqHz, uint16_t carrierMs, uint8_t dutyPercent) {
   gTestIr.space(0);
 }
 
+// NEC is a convenient known-good protocol for checking that receivers decode
+// something recognizable even before AC protocol matching starts.
 void sendNecFrame(const IrTestRequest &request) {
   gTestIr.sendGeneric(kNecHdrMark, kNecHdrSpace, kNecBitMark, kNecOneSpace,
                       kNecBitMark, kNecZeroSpace, kNecBitMark, kNecMinGap,

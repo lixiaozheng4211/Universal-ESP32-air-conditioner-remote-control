@@ -19,7 +19,6 @@ QJsonObject stateToJson(const AcState& state) {
   obj["fan"] = state.fan;
   obj["swingv"] = state.swingv;
   obj["swingh"] = state.swingh;
-  obj["eco"] = state.eco;
   return obj;
 }
 
@@ -32,7 +31,6 @@ AcState stateFromJson(const QJsonObject& obj) {
   state.fan = obj.value("fan").toString("auto");
   state.swingv = obj.value("swingv").toString("off");
   state.swingh = obj.value("swingh").toString("off");
-  state.eco = obj.value("eco").toBool(false);
   return state;
 }
 

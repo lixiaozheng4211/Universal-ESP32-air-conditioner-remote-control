@@ -8,6 +8,7 @@
 
 namespace {
 
+// Response helpers keep every host-facing line machine-readable.
 void ok(const char *message) { Serial.printf("OK %s\n", message); }
 
 void err(const char *code, const char *message) {
@@ -93,14 +94,20 @@ bool parseAction(const String &value, AcAction *out) {
     *out = AcAction::Temp;
   } else if (value == "mode") {
     *out = AcAction::Mode;
+  } else if (value == "fan") {
+    *out = AcAction::Fan;
   } else if (value == "swingv") {
     *out = AcAction::SwingV;
+  } else if (value == "swingh") {
+    *out = AcAction::SwingH;
   } else {
     return false;
   }
   return true;
 }
 
+// Shared integer parser for IRTEST options. min/max live at each call site so
+// the error message can name the accepted range.
 bool parseUnsignedValue(const String &value, uint32_t minValue,
                         uint32_t maxValue, uint32_t *out) {
   char *end = nullptr;
@@ -113,6 +120,7 @@ bool parseUnsignedValue(const String &value, uint32_t minValue,
   return true;
 }
 
+// Accept both human-friendly values like 38k/40khz and raw Hz values.
 bool parseFrequency(String value, uint32_t *out) {
   value.trim();
   value.toLowerCase();
@@ -147,6 +155,8 @@ bool parseDataValue(const String &value, uint64_t *out) {
   return true;
 }
 
+// CATALOG mirrors the static tree. Qt can build its brand/remote view directly
+// from these lines, and Android can store a chosen remote id for later control.
 void printCatalog() {
   Serial.printf("OK CATALOG remotes=%u\n", acRemoteCount());
   for (size_t i = 0; i < acCatalogNodeCount(); ++i) {
@@ -160,10 +170,10 @@ void printCatalog() {
 
     const AcCatalogNode &brand = acCatalogNodeAt(node.parent);
     const AcRemote &remote = *node.remote;
-    Serial.printf("CAT REMOTE id=%s brand=%s name=\"%s\" temp=%u-%u eco=%u "
+    Serial.printf("CAT REMOTE id=%s brand=%s name=\"%s\" temp=%u-%u fan=%u "
                   "swingv=%u swingh=%u driver=\"%s\" next_sibling=%d\n",
                   remote.id, brand.id, remote.name, remote.caps.minTemp,
-                  remote.caps.maxTemp, remote.caps.supportsEco ? 1 : 0,
+                  remote.caps.maxTemp, remote.caps.supportsFan ? 1 : 0,
                   remote.caps.supportsSwingV ? 1 : 0,
                   remote.caps.supportsSwingH ? 1 : 0,
                   remote.klass ? remote.klass->name : "none",
@@ -172,6 +182,8 @@ void printCatalog() {
   ok("CATALOG END");
 }
 
+// Parse AC key=value pairs. Unknown keys are rejected, while eco is accepted
+// and ignored for one compatibility version because older Qt builds sent it.
 bool parseAcArgs(String args, AirConditioner *ac) {
   args.trim();
   int start = 0;
@@ -208,7 +220,7 @@ bool parseAcArgs(String args, AirConditioner *ac) {
       }
     } else if (key == "action") {
       if (!parseAction(value, &ac->action)) {
-        err("BAD_ACTION", "use state/power/temp/mode/swingv");
+        err("BAD_ACTION", "use state/power/temp/mode/fan/swingv/swingh");
         return false;
       }
     } else if (key == "power") {
@@ -239,7 +251,8 @@ bool parseAcArgs(String args, AirConditioner *ac) {
         return false;
       }
     } else if (key == "eco") {
-      if (!parseBoolValue(value, &ac->state.eco)) {
+      bool ignoredEco = false;
+      if (!parseBoolValue(value, &ignoredEco)) {
         err("BAD_ECO", "use 0/1");
         return false;
       }
@@ -259,6 +272,8 @@ bool parseAcArgs(String args, AirConditioner *ac) {
   return true;
 }
 
+// IRTEST is intentionally separate from AC control. It helps verify GPIO,
+// carrier frequency, duty cycle, and basic receiver visibility during wiring.
 bool parseIrTestArgs(String args, IrTestRequest *request) {
   args.trim();
   int start = 0;
@@ -354,6 +369,7 @@ void handleAcCommand(const String &args) {
                 acModeToString(ac.state.mode), ac.state.temp);
 }
 
+// Send a direct IR test frame/carrier and return the exact settings used.
 void handleIrTestCommand(const String &args) {
   IrTestRequest request;
   if (!parseIrTestArgs(args, &request)) {
@@ -391,6 +407,8 @@ void serialProtocolProcessLine(String line) {
   String args = space < 0 ? "" : line.substring(space + 1);
   command.toUpperCase();
 
+  // Keep command names uppercase and arguments lowercase key=value text so the
+  // protocol stays simple for Android USB-serial libraries.
   if (command == "PING") {
     ok("PONG");
   } else if (command == "CATALOG") {
@@ -400,7 +418,7 @@ void serialProtocolProcessLine(String line) {
   } else if (command == "IRTEST") {
     handleIrTestCommand(args);
   } else if (command == "HELP") {
-    ok("COMMANDS PING CATALOG AC(action=state/power/temp/mode/swingv) IRTEST");
+    ok("COMMANDS PING CATALOG AC(action=state/power/temp/mode/fan/swingv/swingh) IRTEST");
   } else {
     err("UNKNOWN_COMMAND", command.c_str());
   }
