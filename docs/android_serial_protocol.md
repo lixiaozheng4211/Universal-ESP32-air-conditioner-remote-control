@@ -1,10 +1,10 @@
 # Android 串口接入协议说明
 
-本文档面向 Android 端软件开发人员。Android App 只需要通过 USB 串口向 ESP32 发送文本命令，就可以控制 ESP32 发射空调红外编码。
+本文档面向 Android 端软件开发人员。Android App 只需要通过 USB 串口向 ESP32-S3 发送文本命令，就可以控制 ESP32-S3 发射空调红外编码。
 
 ## 1. 串口连接
 
-串口参数固定为：
+V1.1 固件目标芯片为 ESP32-S3，默认仍使用 UART0 / USB-UART 桥接方式，不启用 USB CDC 作为主控制串口。串口参数固定为：
 
 ```text
 baudrate: 115200

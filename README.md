@@ -1,6 +1,6 @@
 # Universal ESP32 空调串口遥控器
 
-这个仓库实现了一个“串口空调遥控器”：上位设备通过 USB 串口给 ESP32 发送文本命令，ESP32 再选择对应空调遥控器协议并发射红外。
+这个仓库实现了一个“串口空调遥控器”：上位设备通过 USB 串口给 ESP32-S3 发送文本命令，ESP32-S3 再选择对应空调遥控器协议并发射红外。
 
 当前仓库包含两部分：
 
@@ -17,13 +17,15 @@ docs/android_serial_protocol.md
 
 ## 固件
 
+V1.1 当前固件目标芯片为 ESP32-S3，串口仍使用 UART0 / USB-UART 桥接方式，不启用 USB CDC 作为主控制串口。
+
 红外发射引脚默认是 GPIO4，配置在：
 
 ```text
 airconditioner_control_main/main/core/ac_config.h
 ```
 
-串口参数：
+串口参数保持不变：
 
 ```text
 115200 8N1
