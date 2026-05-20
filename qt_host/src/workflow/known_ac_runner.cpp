@@ -1,8 +1,9 @@
 #include "known_ac_runner.h"
 
 KnownAcRunner::KnownAcRunner(QObject* parent) : QObject(parent) {
-  // 1500ms 是经验间隔：给红外接收和空调蜂鸣响应留出时间，也防止 ESP32 连续发射过密。
-  m_timer.setInterval(1500);
+  // 批量开关机只发送 action=power，Qt 侧按 50ms 逐台写入串口。
+  // ESP32 固件会同步执行红外发送，串口缓冲负责承接短时间内到达的命令。
+  m_timer.setInterval(50);
   connect(&m_timer, &QTimer::timeout, this, &KnownAcRunner::sendNext);
 }
 
