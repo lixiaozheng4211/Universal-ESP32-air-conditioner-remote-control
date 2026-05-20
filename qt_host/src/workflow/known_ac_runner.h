@@ -7,7 +7,7 @@
 #include "ac_catalog.h"
 
 // 批量空调电源执行器。
-// 它把已保存空调按 50ms 间隔逐个写入串口开/关，也避免 UI 阻塞。
+// 它把已保存空调按 200ms 间隔逐个写入串口开/关，也避免 UI 阻塞。
 // MainWindow 只需要提供 SendCommand，真正的定时节奏由这个类维护。
 class KnownAcRunner : public QObject {
   Q_OBJECT
