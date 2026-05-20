@@ -6,8 +6,8 @@
 
 #include "ac_catalog.h"
 
-// “开启空调”批量执行器。
-// 它把已保存空调按 1500ms 间隔逐个开机，避免连续红外发射过密，也避免 UI 阻塞。
+// 批量空调电源执行器。
+// 它把已保存空调按 1500ms 间隔逐个开/关，避免连续红外发射过密，也避免 UI 阻塞。
 // MainWindow 只需要提供 SendCommand，真正的定时节奏由这个类维护。
 class KnownAcRunner : public QObject {
   Q_OBJECT
@@ -15,13 +15,15 @@ class KnownAcRunner : public QObject {
  public:
   // 参数是已经拼好的串口命令，例如 AC remote=... action=power power=1。
   using SendCommand = std::function<bool(const QString& command)>;
+  using DeviceSent = std::function<void(int index, const AcState& state)>;
 
   explicit KnownAcRunner(QObject* parent = nullptr);
 
   bool isRunning() const;
 
-  // 传入设备列表副本，运行期间即使主窗口表格刷新，也不会影响当前批量开机顺序。
-  void start(QVector<KnownAcDevice> devices, const SendCommand& sendCommand);
+  // 传入设备列表副本，运行期间即使主窗口刷新，也不会影响当前批量顺序。
+  void start(QVector<KnownAcDevice> devices, bool targetPower,
+             const SendCommand& sendCommand, const DeviceSent& deviceSent);
   void stop();
 
  signals:
@@ -34,6 +36,8 @@ class KnownAcRunner : public QObject {
  private:
   QVector<KnownAcDevice> m_devices;
   SendCommand m_sendCommand;
+  DeviceSent m_deviceSent;
   QTimer m_timer;
+  bool m_targetPower = true;
   int m_index = 0;
 };

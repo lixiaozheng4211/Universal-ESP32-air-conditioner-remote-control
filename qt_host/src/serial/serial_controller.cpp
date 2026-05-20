@@ -5,6 +5,7 @@ SerialController::SerialController(QObject *parent)
 {
     // QtSerialPort 是异步接口；readyRead 到来时只说明“有新字节”，不保证刚好是一整行。
     connect(&m_port, &QSerialPort::readyRead, this, &SerialController::readReadyData);
+    connect(&m_port, &QSerialPort::errorOccurred, this, &SerialController::handlePortError);
 }
 
 QStringList SerialController::availablePorts() const
@@ -78,6 +79,7 @@ bool SerialController::sendLine(const QString &line, QString *errorMessage)
         if (errorMessage) {
             *errorMessage = m_port.errorString();
         }
+        emit connectionLost(m_port.errorString());
         return false;
     }
     return true;
@@ -104,4 +106,20 @@ void SerialController::readReadyData()
             emit lineReceived(QString::fromUtf8(line));
         }
     }
+}
+
+void SerialController::handlePortError(QSerialPort::SerialPortError error)
+{
+    if (error == QSerialPort::NoError || error == QSerialPort::NotOpenError) {
+        return;
+    }
+    if (!m_port.isOpen()) {
+        return;
+    }
+
+    const QString reason = m_port.errorString();
+    m_port.close();
+    m_buffer.clear();
+    emit statusChanged(QStringLiteral("未连接"));
+    emit connectionLost(reason);
 }

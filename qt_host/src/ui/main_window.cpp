@@ -5,9 +5,13 @@
 
 #include <QApplication>
 #include <QDateTime>
+#include <QEvent>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QResizeEvent>
+#include <QScrollArea>
 #include <QSplitter>
 #include <QStandardItem>
 #include <QStyle>
@@ -57,6 +61,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(&m_serial, &SerialController::lineReceived, this, &MainWindow::appendSerialLine);
     connect(&m_serial, &SerialController::statusChanged, this, &MainWindow::updateSerialStatus);
+    connect(&m_serial, &SerialController::connectionLost, this, &MainWindow::handleConnectionLost);
+    connect(&m_heartbeatTimer, &QTimer::timeout, this, &MainWindow::sendHeartbeatPing);
+    m_heartbeatTimer.setInterval(3000);
 }
 
 void MainWindow::buildUi()
@@ -91,24 +98,29 @@ void MainWindow::buildUi()
     // 主操作区。38K/40K 测试按钮用于排查红外硬件和载波频率问题。
     auto *actionLayout = new QHBoxLayout;
     m_startButton = new QPushButton(style()->standardIcon(QStyle::SP_MediaPlay), QStringLiteral("开启空调"), central);
+    m_stopAllButton = new QPushButton(style()->standardIcon(QStyle::SP_MediaStop), QStringLiteral("关闭所有空调"), central);
     m_addButton = new QPushButton(style()->standardIcon(QStyle::SP_FileDialogNewFolder), QStringLiteral("添加空调"), central);
     m_deleteButton = new QPushButton(style()->standardIcon(QStyle::SP_TrashIcon), QStringLiteral("删除空调"), central);
     m_ir38TestButton = new QPushButton(style()->standardIcon(QStyle::SP_DialogApplyButton), QStringLiteral("38K测试"), central);
     m_ir40TestButton = new QPushButton(style()->standardIcon(QStyle::SP_DialogApplyButton), QStringLiteral("40K测试"), central);
     m_startButton->setMinimumHeight(58);
+    m_stopAllButton->setMinimumHeight(58);
     m_addButton->setMinimumHeight(58);
     m_deleteButton->setMinimumHeight(58);
     m_ir38TestButton->setMinimumHeight(58);
     m_ir40TestButton->setMinimumHeight(58);
     m_startButton->setIconSize(QSize(28, 28));
+    m_stopAllButton->setIconSize(QSize(28, 28));
     m_addButton->setIconSize(QSize(28, 28));
     m_deleteButton->setIconSize(QSize(24, 24));
     m_ir38TestButton->setIconSize(QSize(24, 24));
     m_ir40TestButton->setIconSize(QSize(24, 24));
+    m_stopAllButton->setToolTip(QStringLiteral("按间隔逐台发送关机命令"));
     m_deleteButton->setToolTip(QStringLiteral("从已保存空调库中删除当前空调"));
     m_ir38TestButton->setToolTip(QStringLiteral("发送 38kHz NEC 红外测试帧"));
     m_ir40TestButton->setToolTip(QStringLiteral("发送 40kHz NEC 红外测试帧"));
     actionLayout->addWidget(m_startButton);
+    actionLayout->addWidget(m_stopAllButton);
     actionLayout->addWidget(m_addButton);
     actionLayout->addWidget(m_deleteButton);
     actionLayout->addWidget(m_ir38TestButton);
@@ -122,26 +134,18 @@ void MainWindow::buildUi()
     m_catalogTree->setModel(m_catalogModel);
     m_catalogTree->setHeaderHidden(true);
 
-    m_knownTable = new QTableWidget(splitter);
-    m_knownTable->setColumnCount(9);
-    m_knownTable->setHorizontalHeaderLabels({
-        QStringLiteral("名称"),
-        QStringLiteral("品牌"),
-        QStringLiteral("遥控器"),
-        QStringLiteral("状态"),
-        QStringLiteral("温度"),
-        QStringLiteral("模式"),
-        QStringLiteral("风速"),
-        QStringLiteral("上下风"),
-        QStringLiteral("左右风"),
-    });
-    m_knownTable->horizontalHeader()->setStretchLastSection(true);
-    m_knownTable->verticalHeader()->setVisible(false);
-    m_knownTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_knownTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_knownScrollArea = new QScrollArea(splitter);
+    m_knownScrollArea->setWidgetResizable(true);
+    m_knownScrollArea->setFrameShape(QFrame::NoFrame);
+    m_knownCardContainer = new QWidget(m_knownScrollArea);
+    m_knownCardLayout = new QGridLayout(m_knownCardContainer);
+    m_knownCardLayout->setContentsMargins(8, 8, 8, 8);
+    m_knownCardLayout->setSpacing(10);
+    m_knownCardLayout->setAlignment(Qt::AlignTop);
+    m_knownScrollArea->setWidget(m_knownCardContainer);
 
     splitter->addWidget(m_catalogTree);
-    splitter->addWidget(m_knownTable);
+    splitter->addWidget(m_knownScrollArea);
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 2);
     rootLayout->addWidget(splitter, 1);
@@ -158,11 +162,12 @@ void MainWindow::buildUi()
     connect(m_refreshButton, &QPushButton::clicked, this, &MainWindow::refreshPorts);
     connect(m_connectButton, &QPushButton::clicked, this, &MainWindow::toggleConnection);
     connect(m_startButton, &QPushButton::clicked, this, &MainWindow::startKnownDevices);
+    connect(m_stopAllButton, &QPushButton::clicked, this, &MainWindow::stopKnownDevices);
     connect(m_addButton, &QPushButton::clicked, this, &MainWindow::addAirConditioner);
     connect(m_deleteButton, &QPushButton::clicked, this, &MainWindow::deleteAirConditioner);
-    connect(m_knownTable, &QTableWidget::cellDoubleClicked, this, &MainWindow::openKnownDeviceControl);
     connect(m_ir38TestButton, &QPushButton::clicked, this, &MainWindow::testIr38k);
     connect(m_ir40TestButton, &QPushButton::clicked, this, &MainWindow::testIr40k);
+    updateConnectionActions();
 }
 
 void MainWindow::populateCatalogTree()
@@ -192,27 +197,155 @@ void MainWindow::reloadKnownDevices()
     if (!error.isEmpty()) {
         QMessageBox::warning(this, QStringLiteral("读取失败"), error);
     }
-    refreshKnownTable();
+    refreshKnownCards();
 }
 
-void MainWindow::refreshKnownTable()
+void MainWindow::refreshKnownCards()
 {
-    // 表格只展示关键状态。单击只负责选中，双击才进入详情控制窗口。
-    m_knownTable->setRowCount(m_knownDevices.size());
-    for (int row = 0; row < m_knownDevices.size(); ++row) {
-        const auto &device = m_knownDevices[row];
-        const AcRemote *remote = findRemote(m_catalog, device.remoteId);
-        m_knownTable->setItem(row, 0, new QTableWidgetItem(device.name));
-        m_knownTable->setItem(row, 1, new QTableWidgetItem(device.brandId));
-        m_knownTable->setItem(row, 2, new QTableWidgetItem(remote ? remote->name : device.remoteId));
-        m_knownTable->setItem(row, 3, new QTableWidgetItem(device.state.power ? QStringLiteral("开") : QStringLiteral("关")));
-        m_knownTable->setItem(row, 4, new QTableWidgetItem(QString::number(device.state.temp)));
-        m_knownTable->setItem(row, 5, new QTableWidgetItem(modeDisplayName(device.state.mode)));
-        m_knownTable->setItem(row, 6, new QTableWidgetItem(fanDisplayName(device.state.fan)));
-        m_knownTable->setItem(row, 7, new QTableWidgetItem(swingDisplayName(device.state.swingv)));
-        m_knownTable->setItem(row, 8, new QTableWidgetItem(swingDisplayName(device.state.swingh)));
+    if (m_selectedDeviceIndex >= m_knownDevices.size()) {
+        m_selectedDeviceIndex = m_knownDevices.isEmpty() ? -1 : m_knownDevices.size() - 1;
     }
-    m_knownTable->resizeColumnsToContents();
+    rebuildKnownCardGrid();
+}
+
+QFrame *MainWindow::createKnownDeviceCard(int index)
+{
+    const auto &device = m_knownDevices[index];
+    const AcRemote *remote = findRemote(m_catalog, device.remoteId);
+    const bool selected = index == m_selectedDeviceIndex;
+
+    auto *card = new QFrame(m_knownCardContainer);
+    card->setObjectName(QStringLiteral("knownAcCard"));
+    card->setFrameShape(QFrame::StyledPanel);
+    card->setCursor(Qt::PointingHandCursor);
+    card->setMinimumSize(220, 156);
+    card->setProperty("deviceIndex", index);
+    card->setStyleSheet(QStringLiteral(
+        "QFrame#knownAcCard {"
+        "  border: 1px solid %1;"
+        "  border-radius: 8px;"
+        "  background: %2;"
+        "}"
+        "QLabel#title { font-size: 16px; font-weight: 600; }"
+        "QLabel#stateOn { color: #0f7b3b; font-weight: 600; }"
+        "QLabel#stateOff { color: #9a3412; font-weight: 600; }"
+        "QLabel#meta { color: #59636e; }")
+            .arg(selected ? QStringLiteral("#2563eb") : QStringLiteral("#d6dce3"),
+                 selected ? QStringLiteral("#eef5ff") : QStringLiteral("#ffffff")));
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(14, 12, 14, 12);
+    layout->setSpacing(8);
+
+    auto *topLayout = new QHBoxLayout;
+    auto *title = new QLabel(device.name.isEmpty() ? device.remoteId : device.name, card);
+    title->setObjectName(QStringLiteral("title"));
+    title->setWordWrap(true);
+    title->setAttribute(Qt::WA_TransparentForMouseEvents);
+    auto *state = new QLabel(device.state.power ? QStringLiteral("已开启") : QStringLiteral("已关闭"), card);
+    state->setObjectName(device.state.power ? QStringLiteral("stateOn") : QStringLiteral("stateOff"));
+    state->setAttribute(Qt::WA_TransparentForMouseEvents);
+    topLayout->addWidget(title, 1);
+    topLayout->addWidget(state);
+    layout->addLayout(topLayout);
+
+    auto *tempMode = new QLabel(QStringLiteral("%1°C  /  %2")
+                                    .arg(device.state.temp)
+                                    .arg(modeDisplayName(device.state.mode)),
+                                card);
+    tempMode->setObjectName(QStringLiteral("title"));
+    tempMode->setAttribute(Qt::WA_TransparentForMouseEvents);
+    layout->addWidget(tempMode);
+
+    auto *info = new QLabel(
+        QStringLiteral("风速 %1    上下风 %2    左右风 %3")
+            .arg(fanDisplayName(device.state.fan),
+                 swingDisplayName(device.state.swingv),
+                 swingDisplayName(device.state.swingh)),
+        card);
+    info->setObjectName(QStringLiteral("meta"));
+    info->setWordWrap(true);
+    info->setAttribute(Qt::WA_TransparentForMouseEvents);
+    layout->addWidget(info);
+
+    auto *remoteInfo = new QLabel(
+        QStringLiteral("%1 / %2")
+            .arg(device.brandId, remote ? remote->name : device.remoteId),
+        card);
+    remoteInfo->setObjectName(QStringLiteral("meta"));
+    remoteInfo->setWordWrap(true);
+    remoteInfo->setAttribute(Qt::WA_TransparentForMouseEvents);
+    layout->addWidget(remoteInfo);
+    layout->addStretch();
+
+    card->installEventFilter(this);
+    return card;
+}
+
+void MainWindow::setSelectedDeviceIndex(int index)
+{
+    if (index < 0 || index >= m_knownDevices.size()) {
+        m_selectedDeviceIndex = -1;
+    } else {
+        m_selectedDeviceIndex = index;
+    }
+    rebuildKnownCardGrid();
+}
+
+void MainWindow::rebuildKnownCardGrid()
+{
+    while (QLayoutItem *item = m_knownCardLayout->takeAt(0)) {
+        if (QWidget *widget = item->widget()) {
+            widget->deleteLater();
+        }
+        delete item;
+    }
+
+    const int width = m_knownScrollArea ? m_knownScrollArea->viewport()->width() : 760;
+    const int columns = qBound(1, width / 260, 3);
+    for (int i = 0; i < m_knownDevices.size(); ++i) {
+        m_knownCardLayout->addWidget(createKnownDeviceCard(i), i / columns, i % columns);
+    }
+    for (int column = 0; column < columns; ++column) {
+        m_knownCardLayout->setColumnStretch(column, 1);
+    }
+}
+
+void MainWindow::updateConnectionActions()
+{
+    const bool connected = m_serial.isOpen();
+    m_startButton->setEnabled(connected);
+    m_stopAllButton->setEnabled(connected);
+    m_addButton->setEnabled(connected);
+    m_ir38TestButton->setEnabled(connected);
+    m_ir40TestButton->setEnabled(connected);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonPress ||
+        event->type() == QEvent::MouseButtonDblClick) {
+        if (auto *card = qobject_cast<QFrame *>(watched)) {
+            const int index = card->property("deviceIndex").toInt();
+            if (index >= 0 && index < m_knownDevices.size()) {
+                m_selectedDeviceIndex = index;
+                rebuildKnownCardGrid();
+                if (event->type() == QEvent::MouseButtonDblClick) {
+                    openKnownDeviceControl(index);
+                }
+                return true;
+            }
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    if (m_knownCardLayout) {
+        rebuildKnownCardGrid();
+    }
 }
 
 void MainWindow::handleCatalogLine(const QString &line)
@@ -259,7 +392,7 @@ void MainWindow::toggleConnection()
 {
     // 连接成功后立即发送 PING，确认固件串口协议在线。
     if (m_serial.isOpen()) {
-        m_serial.close();
+        markDisconnected(QString(), false);
         m_connectButton->setText(QStringLiteral("连接"));
         return;
     }
@@ -269,8 +402,10 @@ void MainWindow::toggleConnection()
         QMessageBox::warning(this, QStringLiteral("连接失败"), error);
         return;
     }
+    m_lastPortName = m_portCombo->currentText();
     m_connectButton->setText(QStringLiteral("断开"));
-    sendCommand(QStringLiteral("PING"));
+    updateConnectionActions();
+    startHeartbeat();
     sendCommand(QStringLiteral("CATALOG"));
 }
 
@@ -296,14 +431,15 @@ void MainWindow::addAirConditioner()
     if (!saveKnownDevices()) {
         return;
     }
-    refreshKnownTable();
+    m_selectedDeviceIndex = m_knownDevices.size() - 1;
+    refreshKnownCards();
     QMessageBox::information(this, QStringLiteral("已添加"), QStringLiteral("%1").arg(device->name));
 }
 
 void MainWindow::deleteAirConditioner()
 {
     // 删除只影响电脑端 JSON，不会改 ESP32 内部状态。
-    const int row = m_knownTable->currentRow();
+    const int row = m_selectedDeviceIndex;
     if (row < 0 || row >= m_knownDevices.size()) {
         QMessageBox::information(this, QStringLiteral("未选择空调"), QStringLiteral("请先在空调库中选择一个空调。"));
         return;
@@ -324,12 +460,25 @@ void MainWindow::deleteAirConditioner()
     if (!saveKnownDevices()) {
         return;
     }
-    refreshKnownTable();
+    if (m_selectedDeviceIndex >= m_knownDevices.size()) {
+        m_selectedDeviceIndex = m_knownDevices.size() - 1;
+    }
+    refreshKnownCards();
 }
 
 void MainWindow::startKnownDevices()
 {
-    // 一键开启会复制当前设备列表交给 KnownAcRunner。
+    runKnownDevicesPower(true);
+}
+
+void MainWindow::stopKnownDevices()
+{
+    runKnownDevicesPower(false);
+}
+
+void MainWindow::runKnownDevicesPower(bool targetPower)
+{
+    // 一键开关会复制当前设备列表交给 KnownAcRunner。
     // Runner 内部用 QTimer 间隔发送，主界面不会卡住。
     if (!m_serial.isOpen()) {
         QMessageBox::information(this, QStringLiteral("串口未连接"), QStringLiteral("请先连接 ESP32 串口。"));
@@ -340,15 +489,24 @@ void MainWindow::startKnownDevices()
         return;
     }
 
-    m_knownRunner.start(m_knownDevices, [this](const QString &command) {
-        return sendCommand(command);
-    });
+    m_knownRunner.start(
+        m_knownDevices,
+        targetPower,
+        [this](const QString &command) {
+            return sendCommand(command);
+        },
+        [this](int index, const AcState &state) {
+            if (index < 0 || index >= m_knownDevices.size()) {
+                return;
+            }
+            m_knownDevices[index].state = state;
+            saveKnownDevices();
+            refreshKnownCards();
+        });
 }
 
-void MainWindow::openKnownDeviceControl(int row, int column)
+void MainWindow::openKnownDeviceControl(int row)
 {
-    Q_UNUSED(column);
-
     // 详情控制窗口只负责采集用户动作。真正发送 action 命令、保存状态和刷新表格都在这里完成。
     if (row < 0 || row >= m_knownDevices.size()) {
         return;
@@ -375,10 +533,8 @@ void MainWindow::openKnownDeviceControl(int row, int column)
         if (!saveKnownDevices()) {
             return false;
         }
-        refreshKnownTable();
-        if (row < m_knownTable->rowCount()) {
-            m_knownTable->selectRow(row);
-        }
+        m_selectedDeviceIndex = row;
+        refreshKnownCards();
         return true;
     });
     dialog.exec();
@@ -420,6 +576,10 @@ void MainWindow::appendSerialLine(const QString &line)
     // RX 日志带时间戳，方便和 TX 对照分析固件响应延迟。
     m_log->appendPlainText(QStringLiteral("%1  RX  %2")
         .arg(QDateTime::currentDateTime().toString("HH:mm:ss"), line));
+    if (line == QStringLiteral("OK PONG")) {
+        m_waitingForPong = false;
+        m_missedPongs = 0;
+    }
     handleCatalogLine(line);
 }
 
@@ -433,10 +593,115 @@ bool MainWindow::sendCommand(const QString &command)
     // 所有串口发送都经过这里，保证失败提示和 TX 日志格式一致。
     QString error;
     if (!m_serial.sendLine(command, &error)) {
-        QMessageBox::warning(this, QStringLiteral("发送失败"), error);
+        if (!m_serial.isOpen()) {
+            markDisconnected(error, true);
+        } else {
+            QMessageBox::warning(this, QStringLiteral("发送失败"), error);
+        }
         return false;
     }
     m_log->appendPlainText(QStringLiteral("%1  TX  %2")
         .arg(QDateTime::currentDateTime().toString("HH:mm:ss"), command));
+    return true;
+}
+
+void MainWindow::handleConnectionLost(const QString &reason)
+{
+    markDisconnected(reason, true);
+}
+
+void MainWindow::sendHeartbeatPing()
+{
+    if (!m_serial.isOpen()) {
+        markDisconnected(QStringLiteral("串口未连接"), true);
+        return;
+    }
+
+    if (m_waitingForPong) {
+        ++m_missedPongs;
+        if (m_missedPongs >= 2) {
+            markDisconnected(QStringLiteral("PING 超时"), true);
+            return;
+        }
+    }
+
+    m_waitingForPong = true;
+    sendCommand(QStringLiteral("PING"));
+}
+
+void MainWindow::startHeartbeat()
+{
+    m_waitingForPong = false;
+    m_missedPongs = 0;
+    m_heartbeatTimer.start();
+    sendHeartbeatPing();
+}
+
+void MainWindow::stopHeartbeat()
+{
+    m_heartbeatTimer.stop();
+    m_waitingForPong = false;
+    m_missedPongs = 0;
+}
+
+void MainWindow::markDisconnected(const QString &reason, bool showDialog)
+{
+    const QString lastPort = m_lastPortName.isEmpty() ? m_serial.portName() : m_lastPortName;
+    stopHeartbeat();
+    m_knownRunner.stop();
+    if (m_serial.isOpen()) {
+        m_serial.close();
+    }
+    if (!lastPort.isEmpty()) {
+        m_lastPortName = lastPort;
+    }
+    m_connectButton->setText(QStringLiteral("连接"));
+    m_statusLabel->setText(QStringLiteral("未连接"));
+    updateConnectionActions();
+
+    if (!showDialog || m_disconnectDialogVisible) {
+        return;
+    }
+
+    m_disconnectDialogVisible = true;
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Warning);
+    box.setWindowTitle(QStringLiteral("USB断开"));
+    box.setText(QStringLiteral("USB已断开，请重新连接。"));
+    if (!reason.isEmpty()) {
+        box.setInformativeText(reason);
+    }
+    auto *reconnectButton =
+        box.addButton(QStringLiteral("重新连接"), QMessageBox::AcceptRole);
+    box.addButton(QStringLiteral("取消"), QMessageBox::RejectRole);
+    box.exec();
+    const bool reconnect = box.clickedButton() == reconnectButton;
+    m_disconnectDialogVisible = false;
+
+    if (reconnect) {
+        reconnectLastPort();
+    }
+}
+
+bool MainWindow::reconnectLastPort()
+{
+    refreshPorts();
+    if (m_lastPortName.isEmpty() || m_portCombo->findText(m_lastPortName) < 0) {
+        QMessageBox::information(this, QStringLiteral("未找到串口"),
+                                 QStringLiteral("未找到原来的串口，请重新选择后连接。"));
+        return false;
+    }
+
+    m_portCombo->setCurrentText(m_lastPortName);
+    QString error;
+    if (!m_serial.open(m_lastPortName, &error)) {
+        QMessageBox::warning(this, QStringLiteral("重新连接失败"), error);
+        return false;
+    }
+
+    m_connectButton->setText(QStringLiteral("断开"));
+    updateConnectionActions();
+    startHeartbeat();
+    sendCommand(QStringLiteral("CATALOG"));
     return true;
 }

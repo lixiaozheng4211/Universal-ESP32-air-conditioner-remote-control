@@ -32,9 +32,13 @@ signals:
     // 供主窗口状态栏显示“已连接 COMx / 未连接”。
     void statusChanged(const QString &status);
 
+    // 串口底层报告设备丢失、读写错误等异常时发出。
+    void connectionLost(const QString &reason);
+
 private slots:
     // readyRead 信号入口。读取串口缓冲区并按换行拆包。
     void readReadyData();
+    void handlePortError(QSerialPort::SerialPortError error);
 
 private:
     QSerialPort m_port;
