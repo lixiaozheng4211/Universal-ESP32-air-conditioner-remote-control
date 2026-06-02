@@ -6,6 +6,7 @@
 
 - `airconditioner_control_main/`：ESP32 固件主工程，负责串口协议解析、遥控器目录、IRremoteESP8266 红外发送。
 - `qt_host/`：Qt6 Widgets 测试/参考上位机，用来在电脑上验证串口协议、添加空调和测试红外硬件。
+- `android_app/`：Android 原生上位机，用手机通过 USB OTG + CH34x 串口控制 ESP32。
 
 Qt 上位机只是调试工具，不是最终平台限制。Android、Windows、Linux 或其它主控只要能打开串口并发送同样的文本命令，就可以控制 ESP32 发射空调红外。
 
@@ -14,6 +15,45 @@ Android 端开发请优先阅读：
 ```text
 docs/android_serial_protocol.md
 ```
+
+## Android 手机上位机
+
+Android 工程位于：
+
+```text
+android_app/
+```
+
+已构建好的调试 APK 放在：
+
+```text
+release/Android_apk/app-debug.apk
+```
+
+Android 端使用 Android USB Host 直接访问 CH340K/CH34x USB-UART，不需要在手机系统里安装 CH340 驱动。手机需要支持 OTG；如果 USB-C 直连无法枚举设备，建议使用 OTG 转接板或带外部供电的 OTG Hub。当前 App 已额外加入 `1A86:7522` 到 CH34x 驱动匹配表，常见 `1A86:7523` 也由串口库默认支持。
+
+Android App 功能按 Qt 上位机模式实现：
+
+- USB 连接、断开、USB 诊断、`PING`/`CATALOG` 自动握手。
+- 可选空调目录弹窗，按品牌查看固件返回的候选遥控器。
+- 添加空调向导：选择品牌，逐个候选测试开机和调温，确认后保存。
+- 已保存空调列表支持搜索、排序、当前选择、多选、全选、清空选择。
+- 单击空调设置当前项，双击或点击“详情”打开单台控制面板。
+- 单台控制面板支持开关机、温度、模式、风速、上下风、左右风；控件会根据遥控器能力禁用不支持的功能。
+- 批量开机/关机、批量设置、停止后续批量任务。
+- 重命名、复制、删除空调。
+- 38K/40K 红外测试。
+- 串口日志弹窗查看 TX/RX/USB/ERR 记录，并支持复制和清空。
+
+Android 构建：
+
+```powershell
+cd android_app
+.\package_android_apk.ps1
+```
+
+脚本会运行 `assembleDebug`，并把 APK 复制到 `release/Android_apk/`。首次构建需要 Android Studio/Android SDK，并会下载 Gradle/Android/Kotlin 依赖。
+`android_app/local.properties` 保存本机 SDK 路径，属于本地配置，不提交到仓库；如果 Gradle 找不到 SDK，可在该文件中写入 `sdk.dir=C\:\\Users\\<用户名>\\AppData\\Local\\Android\\Sdk`。
 
 ## 固件
 

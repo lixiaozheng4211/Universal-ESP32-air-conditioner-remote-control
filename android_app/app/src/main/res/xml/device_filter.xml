@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- QinHeng CH340/CH341 USB-UART, common CH340 product id. -->
+    <usb-device vendor-id="6790" product-id="29987" />
+    <!-- Some CH34x adapters report 0x5523. -->
+    <usb-device vendor-id="6790" product-id="21795" />
+</resources>

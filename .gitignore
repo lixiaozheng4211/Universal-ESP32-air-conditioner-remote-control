@@ -28,6 +28,10 @@ Desktop.ini
 build/
 */build/
 **/build/
+.gradle/
+*/.gradle/
+.gradle-local/
+*/.gradle-local/
 .cache/
 */.cache/
 CMakeCache.txt
@@ -75,6 +79,10 @@ env/
 .clangd
 .clangd/
 .ccls-cache/
+.kotlin/
+*/.kotlin/
+local.properties
+*/local.properties
 
 # Local duplicate/reference copies
 IRremoteESP8266-master/
